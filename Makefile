@@ -1,9 +1,9 @@
 CC=g++
 CFLAGS=-c -Wall
-LDFLAGS=-lasound -lstdc++
-SOURCES=holepunchrtp2.cpp holepunch.cpp
+LDFLAGS=-lasound -lSDL2 -lstdc++
+SOURCES=combine.cpp 
 OBJECTS=$(SOURCES:.cpp=.o)
-EXECUTABLE=soundweave
+EXECUTABLE=combine
 
 all: $(SOURCES) $(EXECUTABLE)
 
