@@ -1,5 +1,7 @@
 .raw
 .o
+recv
+
 # CMake generated files
 build/
 CMakeCache.txt
