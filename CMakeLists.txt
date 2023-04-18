@@ -15,12 +15,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Add source files
 set(NETWORKING_SOURCES src/Networking/holepunch.cpp src/Networking/RTP.cpp)
+set(AUDIOCAPTURE_SOURCES src/AudioCapture/AudioCapture.cpp src/AudioCapture/PingPongBuffer.cpp)
 
 # Add the 'send' executable
-add_executable(send ${NETWORKING_SOURCES} src/holepunchrtp2.cpp)
+add_executable(send ${NETWORKING_SOURCES} ${AUDIOCAPTURE_SOURCES} src/holepunchrtp2.cpp)
 
 # Add the 'receive' executable
-add_executable(receive ${NETWORKING_SOURCES} src/holepunchwaveform.cpp)
+add_executable(receive ${NETWORKING_SOURCES} ${AUDIOCAPTURE_SOURCES} src/holepunchwaveform.cpp)
 
 # Link libraries
 find_package(ALSA REQUIRED)
