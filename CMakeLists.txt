@@ -16,6 +16,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Add source files
 set(NETWORKING_SOURCES src/Networking/holepunch.cpp src/Networking/RTP.cpp)
 set(AUDIOCAPTURE_SOURCES src/AudioCapture/AudioCapture.cpp src/AudioCapture/PingPongBuffer.cpp)
+set(CMAKE_EXE_LINKER_FLAGS "-pthread")
 
 # Add the 'send' executable
 add_executable(send ${NETWORKING_SOURCES} ${AUDIOCAPTURE_SOURCES} src/holepunchrtp2.cpp)
