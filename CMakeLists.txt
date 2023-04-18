@@ -24,7 +24,15 @@ add_executable(receive ${NETWORKING_SOURCES} src/holepunchwaveform.cpp)
 
 # Link libraries
 find_package(ALSA REQUIRED)
+
 find_package(SDL2 REQUIRED)
+if (NOT TARGET SDL2::SDL2)
+    add_library(SDL2::SDL2 UNKNOWN IMPORTED)
+    set_target_properties(SDL2::SDL2 PROPERTIES
+        IMPORTED_LOCATION "${SDL2_LIBRARIES}"
+        INTERFACE_INCLUDE_DIRECTORIES "${SDL2_INCLUDE_DIRS}")
+endif()
+
 target_link_libraries(send PRIVATE ALSA::ALSA SDL2::SDL2)
 target_link_libraries(receive PRIVATE ALSA::ALSA SDL2::SDL2)
 
