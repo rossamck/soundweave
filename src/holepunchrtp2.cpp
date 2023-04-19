@@ -11,7 +11,14 @@
 
 #include "Networking/holepunch.h"
 #include "Networking/RTP.h"
-#include "AudioCapture/AudioCaptureLinux.h" // Include the AudioCaptureLinux header file
+
+#include "AudioCapture/AudioCaptureBase.h"
+#ifdef __linux__
+    #include "AudioCapture/AudioCaptureLinux.h"
+#elif defined(__APPLE__) && defined(__MACH__)
+    #include "AudioCaptureMac.h"
+#endif
+
 
 // Use a unique_ptr for the RTP object
 std::unique_ptr<RTP> rtp;
