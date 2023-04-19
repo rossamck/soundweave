@@ -40,7 +40,7 @@ int main()
   const char *destination_ip = otherClient.ip;
   int destination_port = otherClient.port;
 
-  AudioCapture audioCapture("");
+  AudioCapture audioCapture("", true); // Pass true for dummy_audio
   audioCapture.register_callback(audio_data_callback);
 
   // Instantiate the RTP object

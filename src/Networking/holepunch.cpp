@@ -26,9 +26,13 @@ UDPSocket::UDPSocket(const std::string& hostname, int port) {
   }
 
 UDPSocket::~UDPSocket() {
-    std::cout << "The UDP instance has gone out of scope, but socket not closed" << std::endl;
-    // close(sockfd);
-  }
+    if (sockfd >= 0) {
+        std::cout << "The UDP instance has gone out of scope, but the socket is still open" << std::endl;
+    } else {
+        std::cout << "The UDP instance has gone out of scope, and the socket is closed" << std::endl;
+    }
+}
+
 
 bool UDPSocket::send(const std::string& message, const std::string& hostname, int port) {
     struct sockaddr_in addr;
@@ -95,7 +99,12 @@ int UDPSocket::getSock()
   }
 
 
-  
+void UDPSocket::close() {
+      if (sockfd >= 0) {
+        ::close(sockfd);
+        sockfd = -1;
+    }
+}
 
 bool checkSender(std::string received_ip, std::string target_ip) {
 

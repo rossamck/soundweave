@@ -33,7 +33,7 @@ public:
      * Gets handle for audio device and sets up necessary callbacks.
      * @param device_name The name of the audio device to capture from.
      */
-    AudioCapture(std::string device_name);
+    AudioCapture(std::string device_name, bool dummy_audio);
 
     /**
      * @brief Registers callback for audio data
@@ -88,6 +88,7 @@ private:
      * @brief Function to run the capturing loop in a separate thread
      */
     void CaptureThreadFunction();
+    void DummyAudioThreadFunction();
 
     std::ofstream audioFile;
     snd_pcm_t* handle;
@@ -102,6 +103,8 @@ private:
     DataAvailableCallback callback;
 
     PingPongBuffer buffer_;
+
+    bool dummy_audio;
 };
 
 #endif  // AUDIO_CAPTURE_H

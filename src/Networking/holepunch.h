@@ -44,6 +44,8 @@ public:
 
     int getSock();
 
+    void close();
+
 private:
     int sockfd;
     int port_;
