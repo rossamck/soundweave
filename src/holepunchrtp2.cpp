@@ -42,8 +42,17 @@ int main() {
   const char *destination_ip = otherClient.ip;
   int destination_port = otherClient.port;
 
-  AudioCaptureLinux audioCapture("", false); // Use AudioCaptureLinux instead of AudioCapture
-  audioCapture.register_callback(audio_data_callback);
+  std::unique_ptr<AudioCaptureBase> audioCapture;
+  
+  #ifdef __linux__
+      audioCapture = std::make_unique<AudioCaptureLinux>("", false);
+  #elif defined(__APPLE__) && defined(__MACH__)
+      audioCapture = std::make_unique<AudioCaptureMac>("", false);
+  #else
+      #error Unsupported platform!
+  #endif
+
+  audioCapture->register_callback(audio_data_callback);
 
   // Instantiate the RTP object with a unique_ptr
   rtp = std::make_unique<RTP>(otherClient.ip, otherClient.port, 11);

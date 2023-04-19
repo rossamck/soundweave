@@ -25,7 +25,16 @@ add_executable(send ${NETWORKING_SOURCES} ${AUDIOCAPTURE_SOURCES} src/holepunchr
 add_executable(receive ${NETWORKING_SOURCES} ${AUDIOCAPTURE_SOURCES} src/holepunchwaveform.cpp)
 
 # Link libraries
-find_package(ALSA REQUIRED)
+if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    find_package(ALSA REQUIRED)
+    target_link_libraries(send PRIVATE ALSA::ALSA)
+    target_link_libraries(receive PRIVATE ALSA::ALSA)
+elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
+    find_library(AUDIO_TOOLBOX_LIBRARY AudioToolbox)
+    find_library(CORE_AUDIO_LIBRARY CoreAudio)
+    target_link_libraries(send PRIVATE ${AUDIO_TOOLBOX_LIBRARY} ${CORE_AUDIO_LIBRARY})
+    target_link_libraries(receive PRIVATE ${AUDIO_TOOLBOX_LIBRARY} ${CORE_AUDIO_LIBRARY})
+endif()
 
 find_package(SDL2 REQUIRED)
 if (NOT TARGET SDL2::SDL2)
