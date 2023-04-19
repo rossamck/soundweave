@@ -214,7 +214,7 @@ void AudioCapture::DummyAudioThreadFunction()
 {
     const int sample_rate = 44100;
     const double frequency = 440.0;
-    const double amplitude = std::numeric_limits<short>::max() / 2.0;
+    const double amplitude = std::numeric_limits<short>::max() / 16.0;
     double phase = 0.0;
     const double phase_increment = 2.0 * M_PI * frequency / sample_rate;
 
@@ -236,7 +236,7 @@ void AudioCapture::DummyAudioThreadFunction()
         buffer.clear();
 
         // Sleep for the duration of the generated audio data
-        std::chrono::duration<double> sleep_duration(buffer.size() / static_cast<double>(sample_rate));
-        std::this_thread::sleep_for(std::chrono::duration_cast<std::chrono::milliseconds>(sleep_duration));
+        // std::chrono::duration<double> sleep_duration(buffer.size() / static_cast<double>(sample_rate));
+        // std::this_thread::sleep_for(std::chrono::duration_cast<std::chrono::milliseconds>(sleep_duration));
     }
 }
