@@ -7,30 +7,25 @@
 #include <cstring>
 #include <stdexcept>
 #include <chrono>
+#include <memory>
 
 #include "Networking/holepunch.h"
 #include "Networking/RTP.h"
 #include "AudioCapture/AudioCapture.h"
 
-// Global RTP object
-RTP *rtp = nullptr;
+// Use a unique_ptr for the RTP object
+std::unique_ptr<RTP> rtp;
 int socket_fd = -1;
 
-
 void audio_data_callback(const std::vector<short>& audio_data) {
-    // Print the number of samples in the audio data
     std::cout << "Captured audio data with " << audio_data.size() << " samples" << std::endl;
 
-    // You can process the audio data further here, e.g., save it to a file, analyze it, etc.
-       // Send audio data over RTP
-    if (rtp != nullptr && socket_fd != -1) {
+    if (rtp && socket_fd != -1) {
         rtp->SendPacket(audio_data.data(), audio_data.size() * sizeof(short), socket_fd);
     }
 }
 
-
-int main()
-{
+int main() {
   std::cout << "Initialising..." << std::endl;
   ipInformation otherClient;
   otherClient = connectToClient();
@@ -40,11 +35,11 @@ int main()
   const char *destination_ip = otherClient.ip;
   int destination_port = otherClient.port;
 
-  AudioCapture audioCapture("", true); // Pass true for dummy_audio
+  AudioCapture audioCapture("", true);
   audioCapture.register_callback(audio_data_callback);
 
-  // Instantiate the RTP object
-  rtp = new RTP(otherClient.ip, otherClient.port, 11); // Use the appropriate payload type
+  // Instantiate the RTP object with a unique_ptr
+  rtp = std::make_unique<RTP>(otherClient.ip, otherClient.port, 11);
   socket_fd = otherClient.sock;
 
   while (true) {

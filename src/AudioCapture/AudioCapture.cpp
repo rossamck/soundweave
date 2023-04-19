@@ -1,6 +1,12 @@
 #include "AudioCapture.h"
 #include "PingPongBuffer.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#include <mmdeviceapi.h>
+#include <functiondiscoverykeys_devpkey.h>
+#endif
+
 bool AudioCapture::quit = false;
 std::vector<AudioCapture::DataAvailableCallback> AudioCapture::callbacks;
 
@@ -69,7 +75,106 @@ AudioCapture::AudioCapture(std::string device_name, bool dummy_audio)
 
 std::string AudioCapture::prompt_device_selection()
 {
+#ifdef _WIN32
+    CoInitialize(NULL);
+    IMMDeviceEnumerator *pEnumerator = NULL;
+    IMMDeviceCollection *pCollection = NULL;
+    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), NULL, CLSCTX_ALL, __uuidof(IMMDeviceEnumerator), (void **)&pEnumerator);
+    if (FAILED(hr))
+    {
+        std::cerr << "Error creating IMMDeviceEnumerator: " << std::hex << hr << std::dec << std::endl;
+        throw std::exception();
+    }
 
+    hr = pEnumerator->EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE, &pCollection);
+    if (FAILED(hr))
+    {
+        std::cerr << "Error enumerating audio endpoints: " << std::hex << hr << std::dec << std::endl;
+        pEnumerator->Release();
+        throw std::exception();
+    }
+
+    UINT count;
+    pCollection->GetCount(&count);
+
+    std::vector<std::wstring> deviceNames(count);
+
+    for (UINT i = 0; i < count; ++i)
+    {
+        IMMDevice *pDevice = NULL;
+        LPWSTR pwszID = NULL;
+        IPropertyStore *pProps = NULL;
+
+        hr = pCollection->Item(i, &pDevice);
+        if (FAILED(hr))
+        {
+            std::cerr << "Error getting device " << i << ": " << std::hex << hr << std::dec << std::endl;
+            continue;
+        }
+
+        hr = pDevice->GetId(&pwszID);
+        if (FAILED(hr))
+        {
+            std::cerr << "Error getting device ID: " << std::hex << hr << std::dec << std::endl;
+            pDevice->Release();
+            continue;
+        }
+
+        hr = pDevice->OpenPropertyStore(STGM_READ, &pProps);
+        if (FAILED(hr))
+        {
+            std::cerr << "Error opening property store: " << std::hex << hr << std::dec << std::endl;
+            CoTaskMemFree(pwszID);
+            pDevice->Release();
+            continue;
+        }
+
+        PROPVARIANT varName;
+        PropVariantInit(&varName);
+        hr = pProps->GetValue(PKEY_Device_FriendlyName, &varName);
+        if (FAILED(hr))
+        {
+            std::cerr << "Error getting device friendly name: " << std::hex << hr << std::dec << std::endl;
+            PropVariantClear(&varName);
+            pProps->Release();
+            CoTaskMemFree(pwszID);
+            pDevice->Release();
+            continue;
+        }
+
+        deviceNames[i] = varName.pwszVal;
+        std::wcout << i << L". " << deviceNames[i] << std::endl;
+
+        PropVariantClear(&varName);
+        pProps->Release();
+        CoTaskMemFree(pwszID);
+        pDevice->Release();
+    }
+
+    std::cout << "Enter the index of the audio device to use: ";
+    int device_index;
+    std::cin >> device_index;
+
+    if (device_index < 0 || device_index >= static_cast<int>(count))
+    {
+        std::cerr << "Invalid device index" << std::endl;
+        pCollection->Release();
+        pEnumerator->Release();
+        CoUninitialize();
+        throw std::exception();
+    }
+
+    std::wstring deviceNameW = deviceNames[device_index];
+    std::string deviceName(deviceNameW.begin(), deviceNameW.end());
+
+    pCollection->Release();
+    pEnumerator->Release();
+    CoUninitialize();
+
+    return deviceName;
+
+#else
+    // ... (rest of the original Linux-specific code)
     int device_index = 0;
 
     // Get a list of available audio devices
@@ -114,6 +219,7 @@ std::string AudioCapture::prompt_device_selection()
     std::string device_name(name);
     free(name);
     return device_name;
+#endif
 }
 
 AudioCapture::~AudioCapture()
@@ -236,7 +342,7 @@ void AudioCapture::DummyAudioThreadFunction()
         buffer.clear();
 
         // Sleep for the duration of the generated audio data
-        // std::chrono::duration<double> sleep_duration(buffer.size() / static_cast<double>(sample_rate));
-        // std::this_thread::sleep_for(std::chrono::duration_cast<std::chrono::milliseconds>(sleep_duration));
+        std::chrono::duration<double> sleep_duration(buffer.size() / static_cast<double>(sample_rate));
+        std::this_thread::sleep_for(std::chrono::duration_cast<std::chrono::milliseconds>(sleep_duration));
     }
 }
