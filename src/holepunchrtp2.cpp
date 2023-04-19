@@ -11,7 +11,7 @@
 
 #include "Networking/holepunch.h"
 #include "Networking/RTP.h"
-#include "AudioCapture/AudioCapture.h"
+#include "AudioCapture/AudioCaptureLinux.h" // Include the AudioCaptureLinux header file
 
 // Use a unique_ptr for the RTP object
 std::unique_ptr<RTP> rtp;
@@ -35,7 +35,7 @@ int main() {
   const char *destination_ip = otherClient.ip;
   int destination_port = otherClient.port;
 
-  AudioCapture audioCapture("", true);
+  AudioCaptureLinux audioCapture("", false); // Use AudioCaptureLinux instead of AudioCapture
   audioCapture.register_callback(audio_data_callback);
 
   // Instantiate the RTP object with a unique_ptr
