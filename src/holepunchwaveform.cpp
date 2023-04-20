@@ -76,7 +76,8 @@ int main(int argc, char *argv[])
 
   AudioWaveform waveform(800, 600);
 
-    while (waveform.processEvents()) {
+    // while (waveform.processEvents()) {
+      while (true) {
         // Set up the remote address
         struct sockaddr_in remote_addr;
         socklen_t remote_addr_len = sizeof(remote_addr);
