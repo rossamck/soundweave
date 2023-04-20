@@ -1,7 +1,7 @@
 .raw
 .o
 recv
-
+test/
 # CMake generated files
 build/
 CMakeCache.txt

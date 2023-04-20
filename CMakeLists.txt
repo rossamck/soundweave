@@ -15,7 +15,16 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Add source files
 set(NETWORKING_SOURCES src/Networking/holepunch.cpp src/Networking/RTP.cpp)
-set(AUDIOCAPTURE_SOURCES src/AudioCapture/AudioCaptureBase.cpp src/AudioCapture/AudioCaptureLinux.cpp src/AudioCapture/AudioCaptureMac.cpp src/AudioCapture/PingPongBuffer.cpp)
+set(AUDIOCAPTURE_BASE_SOURCES src/AudioCapture/AudioCaptureBase.cpp src/AudioCapture/PingPongBuffer.cpp)
+
+if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    set(AUDIOCAPTURE_PLATFORM_SOURCES src/AudioCapture/AudioCaptureLinux.cpp)
+elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
+    set(AUDIOCAPTURE_PLATFORM_SOURCES src/AudioCapture/AudioCaptureMac.cpp)
+endif()
+
+set(AUDIOCAPTURE_SOURCES ${AUDIOCAPTURE_BASE_SOURCES} ${AUDIOCAPTURE_PLATFORM_SOURCES})
+
 set(CMAKE_EXE_LINKER_FLAGS "-pthread")
 
 # Add the 'send' executable
@@ -27,6 +36,15 @@ add_executable(receive ${NETWORKING_SOURCES} ${AUDIOCAPTURE_SOURCES} src/holepun
 # Link libraries
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     find_package(ALSA REQUIRED)
+    find_package(SDL2 REQUIRED)
+if(TARGET SDL2::SDL2)
+    target_link_libraries(send PRIVATE SDL2::SDL2)
+    target_link_libraries(receive PRIVATE SDL2::SDL2)
+else()
+    target_link_libraries(send PRIVATE ${SDL2_LIBRARIES})
+    target_link_libraries(receive PRIVATE ${SDL2_LIBRARIES})
+    include_directories(${SDL2_INCLUDE_DIRS})
+endif()
     target_link_libraries(send PRIVATE ALSA::ALSA)
     target_link_libraries(receive PRIVATE ALSA::ALSA)
 elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")

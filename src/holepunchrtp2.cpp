@@ -37,9 +37,9 @@ int main(int argc, char* argv[]) {
 
   if (argc > 1 && std::strcmp(argv[1], "local") == 0) {
       std::cout << "Using local settings..." << std::endl;
-      std::strcpy(otherClient.ip, "192.168.0.2");
-      otherClient.port = 12345;
-      otherClient.own_port = 12346;
+      std::strcpy(otherClient.ip, "192.168.0.34");
+      otherClient.port = 12346;
+      otherClient.own_port = 12345;
       otherClient.sock = socket(AF_INET, SOCK_DGRAM, 0);
   } else {
       otherClient = connectToClient();
