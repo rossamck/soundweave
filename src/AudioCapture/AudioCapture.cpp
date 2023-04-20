@@ -114,7 +114,7 @@ void AudioCapture::generateSineWave() {
     while (true) {
         std::vector<short> buffer(256);
         for (size_t i = 0; i < buffer.size(); i++) {
-            buffer[i] = static_cast<short>(std::numeric_limits<short>::max() * std::sin(phase));
+            buffer[i] = static_cast<short>(std::numeric_limits<short>::max() * std::sin(phase) * 0.2); //reduced amplitude by 80%
             phase += increment;
             if (phase >= two_pi) {
                 phase -= two_pi;
