@@ -16,10 +16,11 @@ add_subdirectory(deps/rtaudio)
 
 set(NETWORKING_SOURCES src/Networking/holepunch.cpp src/Networking/RTP.cpp)
 set(AUDIOCAPTURE_SOURCES src/AudioCapture/AudioCapture.cpp src/AudioCapture/PingPongBuffer.cpp)
+set(AUDIOWAVEFORM_SOURCES src/AudioPlayback/AudioWaveform.cpp) # Add this line
 set(CMAKE_EXE_LINKER_FLAGS "-pthread")
 
 add_executable(send ${NETWORKING_SOURCES} ${AUDIOCAPTURE_SOURCES} src/holepunchrtp2.cpp)
-add_executable(receive ${NETWORKING_SOURCES} ${AUDIOCAPTURE_SOURCES} src/holepunchwaveform.cpp)
+add_executable(receive ${NETWORKING_SOURCES} ${AUDIOCAPTURE_SOURCES} ${AUDIOWAVEFORM_SOURCES} src/holepunchwaveform.cpp) # Update this line
 
 find_package(ALSA REQUIRED)
 
@@ -34,8 +35,8 @@ endif()
 target_link_libraries(send PRIVATE ALSA::ALSA SDL2::SDL2 rtaudio)
 target_link_libraries(receive PRIVATE ALSA::ALSA SDL2::SDL2 rtaudio)
 
-target_include_directories(send PRIVATE deps/rtaudio)
-target_include_directories(receive PRIVATE deps/rtaudio)
+target_include_directories(send PRIVATE deps/rtaudio ${CMAKE_CURRENT_SOURCE_DIR}/src) # Update this line
+target_include_directories(receive PRIVATE deps/rtaudio ${CMAKE_CURRENT_SOURCE_DIR}/src) # Update this line
 
 add_custom_target(clean-all
                   COMMAND ${CMAKE_COMMAND} -P "${CMAKE_SOURCE_DIR}/CleanAll.cmake"
