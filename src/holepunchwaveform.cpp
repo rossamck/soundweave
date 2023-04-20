@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <cstring>
 #include <SDL2/SDL.h>
+#include <cstdlib> // Add this header
+
 
 #include "Networking/holepunch.h"
 
@@ -24,16 +26,46 @@ struct RTPHeader
     uint32_t csrc[1];
 };
 
-int main() {
+int main(int argc, char* argv[]) { // Modify the main function to accept command-line arguments
 
+    bool use_local_client = false;
+    int receiverPort = 12345;
+    int sockfd;
 
-  // int receiverPort = 12345;
+    if (argc > 1 && strcmp(argv[1], "--local") == 0) {
+        use_local_client = true;
+    }
 
-  std::cout << "Initialising..." << std::endl;
-  ipInformation otherClient;
-  otherClient = connectToClient();
-  std::cout << "Main function: ip = " << otherClient.ip << " port = " << otherClient.port << " own port = " << otherClient.own_port << std::endl;
-  std::cout << "Socket is: " << otherClient.sock << std::endl;
+    if (use_local_client) {
+        // Use local client
+        sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+        if (sockfd < 0) {
+            perror("socket");
+            return 1;
+        }
+
+        // Set up the local address
+        struct sockaddr_in local_addr;
+        memset(&local_addr, 0, sizeof(local_addr));
+        local_addr.sin_family = AF_INET;
+        local_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        local_addr.sin_port = htons(receiverPort);
+
+        // Bind the socket to the local address
+        if (bind(sockfd, (struct sockaddr*)&local_addr, sizeof(local_addr)) < 0) {
+            perror("bind");
+            return 1;
+        }
+    } else {
+        // Use original code
+        std::cout << "Initialising..." << std::endl;
+        ipInformation otherClient;
+        otherClient = connectToClient();
+        std::cout << "Main function: ip = " << otherClient.ip << " port = " << otherClient.port << " own port = " << otherClient.own_port << std::endl;
+        std::cout << "Socket is: " << otherClient.sock << std::endl;
+
+        sockfd = otherClient.sock;
+    }
 
 
 
@@ -73,7 +105,7 @@ int main() {
   //   throw std::runtime_error("Error binding socket to local address");
   // }
 
-  int sockfd = otherClient.sock;
+  // int sockfd = otherClient.sock;
 
 
   while (true) {

@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <chrono>
 #include <memory>
+#include <cstdlib> // Add this header
 
 #include "Networking/holepunch.h"
 #include "Networking/RTP.h"
@@ -25,32 +26,42 @@ void audio_data_callback(const std::vector<short>& audio_data) {
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) { // Modify the main function to accept command-line arguments
 
-  std::cout << "Initialising..." << std::endl;
-  ipInformation otherClient;
-  otherClient = connectToClient();
-  std::cout << "Main function: ip = " << otherClient.ip << " port = " << otherClient.port << " own port = " << otherClient.own_port << std::endl;
-  std::cout << "Socket is: " << otherClient.sock << std::endl;
+    bool use_local_client = false;
+    if (argc > 1 && strcmp(argv[1], "--local") == 0) {
+        use_local_client = true;
+    }
 
+    if (use_local_client) {
+        // Use local client
+        socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+        if (socket_fd < 0) {
+            perror("socket");
+            return 1;
+        }
 
+        rtp = std::make_unique<RTP>("192.168.0.164", 12345, 11); // Replace with the local IP address and port
+    } else {
+        // Use original code
+        std::cout << "Initialising..." << std::endl;
+        ipInformation otherClient;
+        otherClient = connectToClient();
+        std::cout << "Main function: ip = " << otherClient.ip << " port = " << otherClient.port << " own port = " << otherClient.own_port << std::endl;
+        std::cout << "Socket is: " << otherClient.sock << std::endl;
 
+        rtp = std::make_unique<RTP>(otherClient.ip, otherClient.port, 11);
+        socket_fd = otherClient.sock;
+    }
 
-  const char *destination_ip = otherClient.ip;
-  int destination_port = otherClient.port;
+    AudioCapture audioCapture("", true); //set true for dummy audio
+    audioCapture.register_callback(audio_data_callback);
+    audioCapture.start();
 
-  AudioCapture audioCapture("", true); //set true for dummy audio
-  audioCapture.register_callback(audio_data_callback);
-  audioCapture.start();
+    while (true) {
+    }
 
-  // Instantiate the RTP object with a unique_ptr
-  rtp = std::make_unique<RTP>(otherClient.ip, otherClient.port, 11);
-  socket_fd = otherClient.sock;
+    audioCapture.stop(); // Stop the audio capture before exiting
 
-  while (true) {
-
-  }
-      audioCapture.stop(); // Stop the audio capture before exiting
-
-  return 0;
+    return 0;
 }
