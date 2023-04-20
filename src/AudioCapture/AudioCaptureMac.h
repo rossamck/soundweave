@@ -9,12 +9,17 @@
 #include "AudioCaptureBase.h"
 #include <thread>
 #include <chrono>
+#include <iostream>
+#include <vector>
+
 
 class AudioCaptureMac : public AudioCaptureBase
 {
 public:
     AudioCaptureMac(std::string device_name, bool dummy_audio);
     ~AudioCaptureMac();
+
+    std::string prompt_device_selection() override;  // Add this line
 
 private:
     void openDevice(const std::string &device_name);
@@ -31,6 +36,10 @@ private:
 
     void CaptureThreadFunction();
     void DummyAudioThreadFunction();
+
+    std::vector<AudioDeviceID> get_audio_input_devices();
+    std::string get_device_name(AudioDeviceID device);
+
 
     AudioUnit audioUnit;
     std::thread captureThread;

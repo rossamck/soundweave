@@ -5,8 +5,12 @@
 AudioCaptureMac::AudioCaptureMac(std::string device_name, bool dummy_audio)
     : AudioCaptureBase(device_name, dummy_audio)
 {
+    
     if (!dummy_audio)
     {
+            if (device_name.empty()) {
+        device_name = prompt_device_selection();
+    }
         openDevice(device_name);
         startCapture();
     }
@@ -156,7 +160,7 @@ OSStatus AudioCaptureMac::MyCallback(void *inRefCon,
 
     std::vector<short> data(inNumberFrames);
     memcpy(data.data(), bufferList.mBuffers[0].mData, bufferList.mBuffers[0].mDataByteSize);
-    instance->buffer_.write(data);
+    instance->buffer_.add_data(data);
 
     free(bufferList.mBuffers[0].mData);
     return noErr;
@@ -175,7 +179,105 @@ void AudioCaptureMac::DummyAudioThreadFunction()
     while (!quit)
     {
         std::vector<short> dummyData(4410, 0); // 100ms worth of silence
-        buffer_.write(dummyData);
+        buffer_.add_data(dummyData);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
+
+
+std::vector<AudioDeviceID> AudioCaptureMac::get_audio_input_devices() {
+    AudioObjectPropertyAddress propertyAddress = {
+        kAudioHardwarePropertyDevices,
+        kAudioObjectPropertyScopeGlobal,
+        kAudioObjectPropertyElementMaster
+    };
+
+    UInt32 dataSize = 0;
+    OSStatus status = AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &propertyAddress, 0, nullptr, &dataSize);
+    if (status != noErr) {
+        std::cerr << "Error getting audio input device list size." << std::endl;
+        return {};
+    }
+
+    UInt32 deviceCount = dataSize / sizeof(AudioDeviceID);
+    std::vector<AudioDeviceID> devices(deviceCount);
+
+    status = AudioObjectGetPropertyData(kAudioObjectSystemObject, &propertyAddress, 0, nullptr, &dataSize, devices.data());
+    if (status != noErr) {
+        std::cerr << "Error getting audio input device list." << std::endl;
+        return {};
+    }
+
+    std::vector<AudioDeviceID> inputDevices;
+
+    for (const auto& device : devices) {
+        UInt32 isInputDevice = 0;
+        UInt32 dataSize = sizeof(isInputDevice);
+
+        propertyAddress.mSelector = kAudioDevicePropertyStreams;
+        propertyAddress.mScope = kAudioDevicePropertyScopeInput;
+
+        status = AudioObjectGetPropertyDataSize(device, &propertyAddress, 0, nullptr, &dataSize);
+        if (status == noErr) {
+            isInputDevice = dataSize > 0;
+        }
+
+        if (isInputDevice) {
+            inputDevices.push_back(device);
+        }
+    }
+
+    return inputDevices;
+}
+
+std::string AudioCaptureMac::get_device_name(AudioDeviceID device) {
+    UInt32 dataSize = sizeof(CFStringRef);
+    CFStringRef deviceName = nullptr;
+
+    AudioObjectPropertyAddress propertyAddress = {
+        kAudioDevicePropertyDeviceUID,
+        kAudioObjectPropertyScopeGlobal,
+        kAudioObjectPropertyElementMaster
+    };
+
+    OSStatus status = AudioObjectGetPropertyData(device, &propertyAddress, 0, nullptr, &dataSize, &deviceName);
+    if (status != noErr) {
+        std::cerr << "Error getting audio device name." << std::endl;
+        return {};
+    }
+
+    char name[256];
+    CFStringGetCString(deviceName, name, sizeof(name), kCFStringEncodingUTF8);
+    CFRelease(deviceName);
+
+    return std::string(name);
+}
+
+
+std::string AudioCaptureMac::prompt_device_selection() {
+    auto inputDevices = get_audio_input_devices();
+
+    if (inputDevices.empty()) {
+        std::cerr << "No audio input devices found." << std::endl;
+        return "";
+    }
+
+    std::cout << "Select an audio input device:" << std::endl;
+    for (size_t i = 0; i < inputDevices.size(); ++i) {
+        std::cout << (i + 1) << ". " << get_device_name(inputDevices[i]) << std::endl;
+    }
+
+    size_t selection = 0;
+    std::cin >> selection;
+
+    if (selection < 1 || selection > inputDevices.size()) {
+        std::cerr << "Invalid selection. No audio device selected." << std::endl;
+        return "";
+    }
+
+    std::string selectedDeviceName = get_device_name(inputDevices[selection - 1]);
+    std::cout << "Selected audio input device: " << selectedDeviceName << std::endl;
+
+    return selectedDeviceName;
+}
+

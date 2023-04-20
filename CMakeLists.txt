@@ -15,7 +15,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Add source files
 set(NETWORKING_SOURCES src/Networking/holepunch.cpp src/Networking/RTP.cpp)
-set(AUDIOCAPTURE_SOURCES src/AudioCapture/AudioCaptureBase.cpp src/AudioCapture/AudioCaptureLinux.cpp src/AudioCapture/PingPongBuffer.cpp)
+set(AUDIOCAPTURE_SOURCES src/AudioCapture/AudioCaptureBase.cpp src/AudioCapture/AudioCaptureLinux.cpp src/AudioCapture/AudioCaptureMac.cpp src/AudioCapture/PingPongBuffer.cpp)
 set(CMAKE_EXE_LINKER_FLAGS "-pthread")
 
 # Add the 'send' executable
@@ -32,20 +32,14 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
 elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
     find_library(AUDIO_TOOLBOX_LIBRARY AudioToolbox)
     find_library(CORE_AUDIO_LIBRARY CoreAudio)
-    target_link_libraries(send PRIVATE ${AUDIO_TOOLBOX_LIBRARY} ${CORE_AUDIO_LIBRARY})
-    target_link_libraries(receive PRIVATE ${AUDIO_TOOLBOX_LIBRARY} ${CORE_AUDIO_LIBRARY})
+    find_library(CORE_FOUNDATION_LIBRARY CoreFoundation)
+    target_link_libraries(send PRIVATE ${AUDIO_TOOLBOX_LIBRARY} ${CORE_AUDIO_LIBRARY} ${CORE_FOUNDATION_LIBRARY})
+    target_link_libraries(receive PRIVATE ${AUDIO_TOOLBOX_LIBRARY} ${CORE_AUDIO_LIBRARY} ${CORE_FOUNDATION_LIBRARY})
+    find_package(SDL2 REQUIRED)
+    target_link_libraries(send PRIVATE ${SDL2_LIBRARIES})
+    target_link_libraries(receive PRIVATE ${SDL2_LIBRARIES})
+    include_directories(${SDL2_INCLUDE_DIRS})
 endif()
-
-find_package(SDL2 REQUIRED)
-if (NOT TARGET SDL2::SDL2)
-    add_library(SDL2::SDL2 UNKNOWN IMPORTED)
-    set_target_properties(SDL2::SDL2 PROPERTIES
-        IMPORTED_LOCATION "${SDL2_LIBRARIES}"
-        INTERFACE_INCLUDE_DIRECTORIES "${SDL2_INCLUDE_DIRS}")
-endif()
-
-target_link_libraries(send PRIVATE ALSA::ALSA SDL2::SDL2)
-target_link_libraries(receive PRIVATE ALSA::ALSA SDL2::SDL2)
 
 # Add clean-all custom target
 add_custom_target(clean-all

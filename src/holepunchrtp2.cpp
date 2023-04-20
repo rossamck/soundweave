@@ -1,5 +1,4 @@
 #include <iostream>
-#include <alsa/asoundlib.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -16,7 +15,7 @@
 #ifdef __linux__
     #include "AudioCapture/AudioCaptureLinux.h"
 #elif defined(__APPLE__) && defined(__MACH__)
-    #include "AudioCaptureMac.h"
+    #include "AudioCapture/AudioCaptureMac.h"
 #endif
 
 
@@ -32,10 +31,20 @@ void audio_data_callback(const std::vector<short>& audio_data) {
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
   std::cout << "Initialising..." << std::endl;
   ipInformation otherClient;
-  otherClient = connectToClient();
+
+  if (argc > 1 && std::strcmp(argv[1], "local") == 0) {
+      std::cout << "Using local settings..." << std::endl;
+      std::strcpy(otherClient.ip, "192.168.0.2");
+      otherClient.port = 12345;
+      otherClient.own_port = 12346;
+      otherClient.sock = socket(AF_INET, SOCK_DGRAM, 0);
+  } else {
+      otherClient = connectToClient();
+  }
+
   std::cout << "Main function: ip = " << otherClient.ip << " port = " << otherClient.port << " own port = " << otherClient.own_port << std::endl;
   std::cout << "Socket is: " << otherClient.sock << std::endl;
 
