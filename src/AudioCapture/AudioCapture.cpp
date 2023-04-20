@@ -90,8 +90,8 @@ void AudioCapture::DummyAudioThreadFunction()
         buffer.clear();
 
         // Sleep for the duration of the generated audio data
-        // std::chrono::duration<double> sleep_duration(buffer.size() / static_cast<double>(sample_rate));
-        // std::this_thread::sleep_for(std::chrono::duration_cast<std::chrono::milliseconds>(sleep_duration));
+        std::chrono::duration<double> sleep_duration(buffer.size() / static_cast<double>(sample_rate));
+        std::this_thread::sleep_for(std::chrono::duration_cast<std::chrono::milliseconds>(sleep_duration));
     }
     throw std::runtime_error("Device not found");
 }
