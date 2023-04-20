@@ -13,7 +13,7 @@
 
 #include "Networking/holepunch.h"
 #include "AudioPlayback/AudioWaveform.h"
-#include "AudioPlayback/WavFileWriter.h"
+#include "AudioPlayback/RawAudioWriter.h"
 
 const int kBufferSize = 1024;
 
@@ -108,12 +108,12 @@ int main(int argc, char *argv[]) {
     }
 
     AudioWaveform waveform(800, 600);
-    WavFileWriter wavwriter("test.wav", 44100, 1);
+    RawAudioWriter rawwriter("test.raw");
 
 
-    auto process_audio_samples = [&waveform, &wavwriter](const std::vector<int16_t> &audio_samples) {
+    auto process_audio_samples = [&waveform, &rawwriter](const std::vector<int16_t> &audio_samples) {
         waveform.drawWaveform(audio_samples.data(), audio_samples.size());
-        wavwriter.write_samples(audio_samples);
+        rawwriter.write_samples(audio_samples);
 
     };
 
