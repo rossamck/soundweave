@@ -6,6 +6,8 @@
 #include <cstring>
 #include <SDL2/SDL.h>
 #include <cstdlib> // Add this header
+#include <csignal>
+
 
 #include "Networking/holepunch.h"
 #include "AudioPlayback/AudioWaveform.h"
@@ -26,9 +28,16 @@ struct RTPHeader
   uint32_t csrc[1];
 };
 
+void signalHandler(int signal) {
+    std::cout << "Interrupt signal (" << signal << ") received.\n";
+    // Terminate the program
+    exit(signal);
+}
+
+
 int main(int argc, char *argv[])
 { // Modify the main function to accept command-line arguments
-
+  signal(SIGINT, signalHandler);
   bool use_local_client = false;
   int receiverPort = 12345;
   int sockfd;
@@ -78,6 +87,7 @@ int main(int argc, char *argv[])
 
     // while (waveform.processEvents()) {
       while (true) {
+        waveform.processEvents();
         // Set up the remote address
         struct sockaddr_in remote_addr;
         socklen_t remote_addr_len = sizeof(remote_addr);

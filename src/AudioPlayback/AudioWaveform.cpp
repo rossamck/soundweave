@@ -23,6 +23,7 @@ AudioWaveform::AudioWaveform(int window_width, int window_height)
 
 AudioWaveform::~AudioWaveform() {
     // Clean up SDL2
+    std::cout << "Shutting down" << std::endl;
     SDL_DestroyRenderer(renderer_);
     SDL_DestroyWindow(window_);
     SDL_Quit();
