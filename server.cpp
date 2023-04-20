@@ -146,6 +146,12 @@ void runServer()
     }
 }
 
+    // Send a confirmation message to both clients
+    // std::cout << "Sending confirmation message to both clients" << std::endl;
+    // const char* confirmationMessage = "Connection established";
+    // sendMessage(sock, client1.addr, confirmationMessage, std::strlen(confirmationMessage));
+    // sendMessage(sock, client2.addr, confirmationMessage, std::strlen(confirmationMessage));
+
 
     
 

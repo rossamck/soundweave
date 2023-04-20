@@ -1,25 +1,12 @@
 #include "holepunch.h"
 
-#include <iostream>
-#include <string>
-#include <cstring>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
-const int BUFFER_SIZE = 1024;
-
-struct ClientInfo
-    {
-    sockaddr_in addr;
-    };
 
 
-class UDPSocket {
-public:
-  UDPSocket(const std::string& hostname, int port) {
+
+
+
+
+UDPSocket::UDPSocket(const std::string& hostname, int port) {
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     // std::cout << "Socket = " << sockfd << std::endl;
     if (sockfd < 0) {
@@ -38,12 +25,16 @@ public:
     }
   }
 
-  ~UDPSocket() {
-    std::cout << "The UDP instance has gone out of scope, but socket not closed" << std::endl;
-    // close(sockfd);
-  }
+UDPSocket::~UDPSocket() {
+    if (sockfd >= 0) {
+        std::cout << "The UDP instance has gone out of scope, but the socket is still open" << std::endl;
+    } else {
+        std::cout << "The UDP instance has gone out of scope, and the socket is closed" << std::endl;
+    }
+}
 
-  bool send(const std::string& message, const std::string& hostname, int port) {
+
+bool UDPSocket::send(const std::string& message, const std::string& hostname, int port) {
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
@@ -58,7 +49,7 @@ public:
     return true;
   }
 
-  bool receive(std::string& message, std::string& sender_ip, int& sender_port, const std::string& listen_ip) {
+bool UDPSocket::receive(std::string& message, std::string& sender_ip, int& sender_port, const std::string& listen_ip) {
     // Set up the listen address
     sockaddr_in listen_addr;
     std::memset(&listen_addr, 0, sizeof(listen_addr));
@@ -87,7 +78,7 @@ public:
     return true;
 }
 
- int getBoundPort() {
+int UDPSocket::getBoundPort() {
     // Set up the socket address
     sockaddr_in socket_addr;
     socklen_t addrlen = sizeof(socket_addr);
@@ -102,20 +93,21 @@ public:
     return ntohs(socket_addr.sin_port);
 }
 
-  int getSock() 
+int UDPSocket::getSock()
   {
     return sockfd;
   }
 
 
-private:
-  int sockfd;
-  int port_;
-};
-  
+void UDPSocket::close() {
+      if (sockfd >= 0) {
+        ::close(sockfd);
+        sockfd = -1;
+    }
+}
 
-bool checkSender(std::string received_ip, std::string target_ip)
-{
+bool checkSender(std::string received_ip, std::string target_ip) {
+
     if (received_ip != target_ip)
     {
         std::cout << "No match" << std::endl;
@@ -130,7 +122,7 @@ ipInformation connectToClient()
     std::string rendezvousIP;
     int rendezvousPort;
 
-    rendezvousIP = "178.79.155.30";
+    rendezvousIP = "64.226.97.53";
     rendezvousPort = 12345;
 
     UDPSocket local_socket("0.0.0.0", 0);
