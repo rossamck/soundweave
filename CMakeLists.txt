@@ -16,7 +16,7 @@ add_subdirectory(deps/rtaudio)
 
 set(NETWORKING_SOURCES src/Networking/holepunch.cpp src/Networking/RTP.cpp)
 set(AUDIOCAPTURE_SOURCES src/AudioCapture/AudioCapture.cpp src/AudioCapture/PingPongBuffer.cpp)
-set(AUDIOWAVEFORM_SOURCES src/AudioPlayback/AudioWaveform.cpp) # Add this line
+set(AUDIOWAVEFORM_SOURCES src/AudioPlayback/AudioWaveform.cpp src/AudioPlayback/WavFileWriter.cpp ) # Add this line
 set(CMAKE_EXE_LINKER_FLAGS "-pthread")
 
 add_executable(send ${NETWORKING_SOURCES} ${AUDIOCAPTURE_SOURCES} src/holepunchrtp2.cpp)
