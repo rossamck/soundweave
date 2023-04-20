@@ -1,3 +1,5 @@
+
+
 #include <iostream>
 #include <alsa/asoundlib.h>
 #include <sys/socket.h>
@@ -26,17 +28,22 @@ void audio_data_callback(const std::vector<short>& audio_data) {
 }
 
 int main() {
+
   std::cout << "Initialising..." << std::endl;
   ipInformation otherClient;
   otherClient = connectToClient();
   std::cout << "Main function: ip = " << otherClient.ip << " port = " << otherClient.port << " own port = " << otherClient.own_port << std::endl;
   std::cout << "Socket is: " << otherClient.sock << std::endl;
 
+
+
+
   const char *destination_ip = otherClient.ip;
   int destination_port = otherClient.port;
 
-  AudioCapture audioCapture("", true);
+  AudioCapture audioCapture("", true); //set true for dummy audio
   audioCapture.register_callback(audio_data_callback);
+  audioCapture.start();
 
   // Instantiate the RTP object with a unique_ptr
   rtp = std::make_unique<RTP>(otherClient.ip, otherClient.port, 11);
@@ -45,5 +52,7 @@ int main() {
   while (true) {
 
   }
+      audioCapture.stop(); // Stop the audio capture before exiting
+
   return 0;
 }
