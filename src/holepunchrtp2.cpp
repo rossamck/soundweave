@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) { // Modify the main function to accept command
         socket_fd = otherClient.sock;
     }
 
-    AudioCapture audioCapture("", true); //set true for dummy audio
+    AudioCapture audioCapture("", true, true); //set true for dummy audio
     audioCapture.register_callback(audio_data_callback);
     audioCapture.start();
 
