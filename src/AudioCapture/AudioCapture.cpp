@@ -64,14 +64,34 @@ void AudioCapture::stop() {
     }
 }
 
-unsigned int AudioCapture::getDeviceId(const std::string& device_name) {
-    // Find the device ID by name
-    unsigned int device_count = dac_.getDeviceCount();
-    for (unsigned int i = 0; i < device_count; i++) {
-        RtAudio::DeviceInfo info = dac_.getDeviceInfo(i);
-        if (info.name == device_name) {
-            return i;
+void AudioCapture::DummyAudioThreadFunction()
+{
+    const int sample_rate = 44100;
+    const double frequency = 440.0;
+    const double amplitude = std::numeric_limits<short>::max() / 2.0;
+    double phase = 0.0;
+    const double phase_increment = 2.0 * M_PI * frequency / sample_rate;
+
+    while (!quit)
+    {
+        // Generate sine wave samples
+        std::vector<short> buffer(4096);
+        for (size_t i = 0; i < buffer.size(); ++i)
+        {
+            buffer[i] = static_cast<short>(amplitude * std::sin(phase));
+            phase += phase_increment;
+            if (phase >= 2.0 * M_PI)
+            {
+                phase -= 2.0 * M_PI;
+            }
         }
+
+        buffer_.add_data(buffer);
+        buffer.clear();
+
+        // Sleep for the duration of the generated audio data
+        // std::chrono::duration<double> sleep_duration(buffer.size() / static_cast<double>(sample_rate));
+        // std::this_thread::sleep_for(std::chrono::duration_cast<std::chrono::milliseconds>(sleep_duration));
     }
     throw std::runtime_error("Device not found");
 }
