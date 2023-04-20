@@ -20,7 +20,7 @@ void AudioCapture::register_callback(AudioDataCallback callback) {
 int AudioCapture::RtAudioCallback(void* outputBuffer, void* inputBuffer, unsigned int nBufferFrames,
                                    double streamTime, RtAudioStreamStatus status, void* userData) {
     AudioCapture* audio_capture = static_cast<AudioCapture*>(userData);
-    std::cout << "TEST YAY" << std::endl;
+    // std::cout << "TEST YAY" << std::endl;
 
     if (status) {
         std::cout << "Stream overflow detected!" << std::endl;

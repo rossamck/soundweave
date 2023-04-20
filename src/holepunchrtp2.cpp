@@ -1,5 +1,3 @@
-
-
 #include <iostream>
 #include <alsa/asoundlib.h>
 #include <sys/socket.h>
