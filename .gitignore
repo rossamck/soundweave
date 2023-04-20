@@ -2,6 +2,8 @@
 .o
 recv
 
+test/
+dependencies/
 # CMake generated files
 build/
 CMakeCache.txt
