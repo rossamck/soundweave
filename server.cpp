@@ -1,165 +1,37 @@
-#include <arpa/inet.h>
-#include <cstring>
+// server.cpp
 #include <iostream>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
+#include <boost/asio.hpp>
 
-const int BUFFER_SIZE = 1024;
-const int PORT = 12345;
+using boost::asio::ip::udp;
 
-struct ClientInfo
-{
-    sockaddr_in addr;
-};
+int main() {
+    try {
+        boost::asio::io_context io_context;
 
+        udp::socket socket(io_context, udp::endpoint(udp::v4(), 13579));
 
+        std::vector<udp::endpoint> clients;
 
+        while (true) {
+            char data[1024];
+            udp::endpoint sender_endpoint;
+            size_t len = socket.receive_from(boost::asio::buffer(data), sender_endpoint);
 
-// Function prototypes
-void runServer();
-void establishConnection(int sock, ClientInfo& client1, ClientInfo& client2);
-void sendMessage(int sock, sockaddr_in addr, const char* message, int messageLen);
-void receiveMessage(int sock, sockaddr_in& addr, char* buffer, int& bufferLen);
+            if (std::string(data, len) == "connect") {
+                clients.push_back(sender_endpoint);
+                std::cout << "Client connected: " << sender_endpoint << std::endl;
 
-int main()
-{
-    while (true)
-    {
-        runServer();
-    }
-    return 0;
-}
-
-
-
-
-void receiveMessage(int sock, sockaddr_in& senderAddr, char* buffer, int& bufferLen)
-{
-    socklen_t senderAddrLen = sizeof(senderAddr);
-    bufferLen = recvfrom(sock, buffer, BUFFER_SIZE, 0, (sockaddr*)&senderAddr, &senderAddrLen);
-}
-
-void sendMessage(int sock, sockaddr_in recipientAddr, const char* buffer, int bufferLen)
-{
-    sendto(sock, buffer, bufferLen, 0, (sockaddr*)&recipientAddr, sizeof(recipientAddr));
-}
-
-void establishConnection(int sock, ClientInfo& client1, ClientInfo& client2)
-{
-    // Send the other client's address and port number to each client
-    char buffer[BUFFER_SIZE];
-    int bufferLen;
-    sockaddr_in* otherClientAddr;
-
-    // Send client 2's address to client 1
-    std::cout << "Sending client 2's address to client 1" << std::endl;
-    otherClientAddr = &client2.addr;
-    bufferLen = std::sprintf(buffer, "%s:%d", inet_ntoa(otherClientAddr->sin_addr), ntohs(otherClientAddr->sin_port));
-    sendMessage(sock, client1.addr, buffer, bufferLen);
-
-    // Send client 1's address to client 2
-    std::cout << "Sending client 1's address to client 2" << std::endl;
-    otherClientAddr = &client1.addr;
-    bufferLen = std::sprintf(buffer, "%s:%d", inet_ntoa(otherClientAddr->sin_addr), ntohs(otherClientAddr->sin_port));
-    sendMessage(sock, client2.addr, buffer, bufferLen);
-
-    // Send a message to each client, asking them to send a message to the other client
-    std::cout << "Instructing clients to connect..." << std::endl;
-    const char* message = "INITIATE CONNECTION";
-    sendMessage(sock, client1.addr, message, std::strlen(message));
-    sendMessage(sock, client2.addr, message, std::strlen(message));
-}
-
-
-
-
-void runServer()
-{
-    // Create a socket
-    int sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0)
-    {
-        std::cerr << "Failed to create socket" << std::endl;
-        return;
-    }
-
-    // Set up the server address
-    sockaddr_in serverAddr;
-    std::memset(&serverAddr, 0, sizeof(serverAddr));
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serverAddr.sin_port = htons(PORT);
-
-    // Bind the socket to the server address
-    if (bind(sock, (sockaddr*)&serverAddr, sizeof(serverAddr)) < 0)
-    {
-        std::cerr << "Failed to bind socket to address" << std::endl;
-        close(sock);
-        return;
-    }
-
-    // Set up the client info structs
-    ClientInfo client1;
-    ClientInfo client2;
-
-    // Wait for initial messages from both clients
-    char buffer[BUFFER_SIZE];
-    int bufferLen;
-    std::memset(&client1.addr, 0, sizeof(client1.addr));
-    std::memset(&client2.addr, 0, sizeof(client2.addr));
-    std::cout << "Waiting for initial messages from clients..." << std::endl;
-    while (true)
-    {
-        // Receive a message from a client
-        sockaddr_in senderAddr;
-        receiveMessage(sock, senderAddr, buffer, bufferLen);
-        std::cout << "Received message from client: " << buffer << std::endl;
-
-        // Store the client's address
-        if (std::memcmp(&client1.addr, &senderAddr, sizeof(senderAddr)) == 0)
-        {
-            std::cout << "Received message from client 1" << std::endl;
-            client1.addr = senderAddr;
+                if (clients.size() == 2) {
+                    std::string client1_info = clients[1].address().to_string() + ":" + std::to_string(clients[1].port());
+                    std::string client2_info = clients[0].address().to_string() + ":" + std::to_string(clients[0].port());
+                    socket.send_to(boost::asio::buffer(client1_info), clients[0]);
+                    socket.send_to(boost::asio::buffer(client2_info), clients[1]);
+                    clients.clear();
+                }
+            }
         }
-        else if (std::memcmp(&client2.addr, &senderAddr, sizeof(senderAddr)) == 0)
-        {
-            std::cout << "Received message from client 2" << std::endl;
-            client2.addr = senderAddr;
-        }
-        else if (client1.addr.sin_port == 0)
-        {
-           std::cout << "Received initial message from client 1" << std::endl;
-        client1.addr = senderAddr;
     }
-    else
-    {
-        std::cout << "Received initial message from client 2" << std::endl;
-        client2.addr = senderAddr;
-    }
-
-    // If both client addresses have been received, establish the connection
-    if (client1.addr.sin_port != 0 && client2.addr.sin_port != 0)
-    {
-        establishConnection(sock, client1, client2);
-        break;
+    catch (std::exception& e) {
+        std::cerr << e.what() << std::endl;
     }
 }
-
-    // Send a confirmation message to both clients
-    // std::cout << "Sending confirmation message to both clients" << std::endl;
-    // const char* confirmationMessage = "Connection established";
-    // sendMessage(sock, client1.addr, confirmationMessage, std::strlen(confirmationMessage));
-    // sendMessage(sock, client2.addr, confirmationMessage, std::strlen(confirmationMessage));
-
-
-    
-
-    // Close the socket
-    close(sock);
-    }
-
-
-
-
-
