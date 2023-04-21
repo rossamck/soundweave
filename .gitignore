@@ -2,6 +2,8 @@
 .o
 recv
 
+autobuild/
+sync_project.sh
 test/
 dependencies/
 # CMake generated files
