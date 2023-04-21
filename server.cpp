@@ -4,6 +4,8 @@
 
 using boost::asio::ip::udp;
 
+constexpr int NUM_CLIENTS = 3;
+
 int main() {
     try {
         boost::asio::io_context io_context;
@@ -32,12 +34,17 @@ int main() {
                 std::cout << "Sent client ID to the connected client: " << client_id << std::endl;
                 client_id++;
 
-                if (clients.size() == 2) {
-                    std::string client1_info = clients[1].address().to_string() + ":" + std::to_string(clients[1].port());
-                    std::string client2_info = clients[0].address().to_string() + ":" + std::to_string(clients[0].port());
-                    socket.send_to(boost::asio::buffer(client1_info), clients[0]);
-                    socket.send_to(boost::asio::buffer(client2_info), clients[1]);
-                    std::cout << "Sent client information to both clients." << std::endl;
+                if (clients.size() == NUM_CLIENTS) {
+                    for (const auto& client : clients) {
+                        std::string peer_info;
+                        for (const auto& peer : clients) {
+                            if (peer != client) {
+                                peer_info += peer.address().to_string() + ":" + std::to_string(peer.port()) + ";";
+                            }
+                        }
+                        socket.send_to(boost::asio::buffer(peer_info), client);
+                    }
+                    std::cout << "Sent client information to all clients." << std::endl;
                     clients.clear();
                 }
             }
