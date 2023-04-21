@@ -1,10 +1,9 @@
-// server.cpp
 #include <iostream>
 #include <boost/asio.hpp>
 
 using boost::asio::ip::udp;
 
-constexpr int NUM_CLIENTS = 3;
+constexpr int MIN_NUM_CLIENTS = 2;
 
 int main() {
     try {
@@ -35,18 +34,33 @@ int main() {
                 std::cout << "Sent client ID to the connected client: " << client_id << std::endl;
                 client_id++;
 
-                if (clients.size() == NUM_CLIENTS) {
+                if (clients.size() >= MIN_NUM_CLIENTS) {
+                    // Send the new client's info to all existing clients
+                    std::string new_client_info = sender_endpoint.address().to_string() + ":" + std::to_string(sender_endpoint.port()) + ";";
                     for (const auto& client : clients) {
-                        std::string peer_info;
-                        for (const auto& peer : clients) {
-                            if (peer != client) {
-                                peer_info += peer.address().to_string() + ":" + std::to_string(peer.port()) + ";";
+                        if (client != sender_endpoint) {
+                            socket.send_to(boost::asio::buffer(new_client_info), client);
+                        }
+                    }
+
+                    // Send all existing clients' info to the new client
+                    std::string existing_clients_info;
+                    for (const auto& client : clients) {
+                        if (client != sender_endpoint) {
+                            existing_clients_info += client.address().to_string() + ":" + std::to_string(client.port()) + ";";
+                        }
+                    }
+                    socket.send_to(boost::asio::buffer(existing_clients_info), sender_endpoint);
+
+                    // Send "NEW" prefix to all existing clients when a new client joins
+                    if (clients.size() >= 3) {
+                        std::string new_client_message = "NEW:" + new_client_info;
+                        for (const auto& client : clients) {
+                            if (client != sender_endpoint) {
+                                socket.send_to(boost::asio::buffer(new_client_message), client);
                             }
                         }
-                        socket.send_to(boost::asio::buffer(peer_info), client);
                     }
-                    std::cout << "Sent client information to all clients." << std::endl;
-                    clients.clear();
                 }
             }
         }

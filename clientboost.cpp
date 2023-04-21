@@ -1,3 +1,4 @@
+// client.cpp
 #include <iostream>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
@@ -23,6 +24,7 @@ public:
     void add_client(const ClientInfo &client_info)
     {
         clients_.push_back(client_info);
+        std::cout << "Added client with IP: " << client_info.ip << ", port: " << client_info.port << std::endl;
     }
 
     void send_data_to_all(const std::string &message)
@@ -40,10 +42,20 @@ public:
         client_threads_.clear();
     }
 
+    void print_clients()
+    {
+        std::cout << "Connected clients:" << std::endl;
+        for (const auto &client_info : clients_)
+        {
+            std::cout << "- " << client_info.ip << ":" << client_info.port << std::endl;
+        }
+    }
+
 private:
     void send_data_to_client(const udp::endpoint &client_endpoint, const std::string &message)
     {
         socket_.send_to(boost::asio::buffer(message), client_endpoint);
+        std::cout << "Sent message to client endpoint: " << client_endpoint << std::endl;
     }
 
     udp::socket &socket_;
@@ -56,7 +68,7 @@ void periodically_send_messages(ClientManager &client_manager, const std::string
     while (true)
     {
         boost::this_thread::sleep(boost::posix_time::seconds(5));
-        std::string message = "Client " + client_id + " checking in";
+        std::string message = "Periodic message from client " + client_id;
         client_manager.send_data_to_all(message);
     }
 }
@@ -65,7 +77,6 @@ int main()
 {
     try
     {
-
         std::cout << "new client test" << std::endl;
         std::cout << "Initialising client" << std::endl;
         boost::asio::io_context io_context;
@@ -101,8 +112,8 @@ int main()
             std::cout << "Received peer information from the rendezvous server." << std::endl;
 
             std::string peer_data(data, len);
-            
             std::vector<udp::endpoint> peer_endpoints;
+            std::cout << "Received raw peer data: " << peer_data << std::endl;
 
             size_t pos = 0;
             while ((pos = peer_data.find(';')) != std::string::npos)
@@ -112,6 +123,7 @@ int main()
                 int peer_port = std::stoi(peer_info.substr(peer_info.find(':') + 1));
                 peer_endpoints.emplace_back(boost::asio::ip::address::from_string(peer_ip), peer_port);
                 peer_data.erase(0, pos + 1);
+                std::cout << "Extracted peer IP: " << peer_ip << ", port: " << peer_port << std::endl;
             }
 
             // Add connected clients to the manager
@@ -122,8 +134,13 @@ int main()
                 client_manager.add_client(client_info);
             }
 
-            // Start sending messages periodically to check connectivity
-            boost::thread message_sender_thread(periodically_send_messages, std::ref(client_manager), client_id);
+            // Send a message to all connected clients
+            std::string message = "Hello, peer! This is client " + client_id;
+            client_manager.send_data_to_all(message);
+            std::cout << "Sent message to peers: " << message << std::endl;
+
+            // Periodically send messages to all connected clients
+            boost::thread periodic_sender(periodically_send_messages, std::ref(client_manager), client_id);
 
             // Receive messages from peer clients
             while (true)
@@ -131,30 +148,40 @@ int main()
                 char incoming_data[1024];
                 udp::endpoint incoming_endpoint;
                 size_t received_len = socket.receive_from(boost::asio::buffer(incoming_data), incoming_endpoint);
-                std::cout << "Received a message from peer." << std::endl;
+                std::cout << "Received a message from ";
+                if (incoming_endpoint == server_endpoint)
+                {
+                    std::cout << "server: ";
+                }
+                else
+                {
+                    std::cout << "peer: ";
+                }
+                std::cout << incoming_data << std::endl;
 
                 std::string received_message(incoming_data, received_len);
-                std::cout << "Message from peer: " << received_message << std::endl;
-
-                std::string new_prefix = "NEW:";
-                if (received_message.substr(0, new_prefix.size()) == new_prefix)
+                if (received_message.substr(0, 4) == "NEW:")
                 {
-                    std::string new_client_info = received_message.substr(new_prefix.size());
-                    size_t pos = new_client_info.find(';');
-                    std::string new_client_peer_info = new_client_info.substr(0, pos);
-                    std::string new_client_ip = new_client_peer_info.substr(0, new_client_peer_info.find(':'));
-                    int new_client_port = std::stoi(new_client_peer_info.substr(new_client_peer_info.find(':') + 1));
-
-                    // Add the new client to the manager
+                    // Extract new client info and update the list of connected clients
+                    std::string new_client_info = received_message.substr(4);
+                    std::string new_client_ip = new_client_info.substr(0, new_client_info.find(':'));
+                    int new_client_port = std::stoi(new_client_info.substr(new_client_info.find(':') + 1));
                     ClientInfo new_client(new_client_ip, new_client_port);
                     client_manager.add_client(new_client);
-                    std::cout << "Added new client to the manager: " << new_client_ip << ":" << new_client_port << std::endl;
-
-                    // Send a message to the new client to establish a connection
-                    std::string message = "Hello, new peer! This is client " + client_id;
-                    client_manager.send_data_to_all(message);
-                    std::cout << "Sent message to the new client: " << message << std::endl;
+                    std::cout << "New client joined the session: " << new_client_info << std::endl;
+                    
                 }
+                else if (received_message.substr(0, 7) == "Server:")
+                {
+                    // Handle messages from the server
+                    std::cout << "Message from server: " << received_message.substr(7) << std::endl;
+                }
+                else
+                {
+                    // Handle normal messages from other clients
+                    std::cout << "Message from peer: " << received_message << std::endl;
+                }
+                client_manager.print_clients();
             }
         }
         else
