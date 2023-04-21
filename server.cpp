@@ -12,6 +12,7 @@ int main() {
         std::cout << "Server initialized, waiting for clients." << std::endl;
 
         std::vector<udp::endpoint> clients;
+        int client_id = 1;
 
         while (true) {
             char data[1024];
@@ -24,6 +25,12 @@ int main() {
             if (received_data == "connect") {
                 clients.push_back(sender_endpoint);
                 std::cout << "Client connected: " << sender_endpoint << std::endl;
+
+                // Send client ID to the connected client
+                std::string id_message = "ID:" + std::to_string(client_id);
+                socket.send_to(boost::asio::buffer(id_message), sender_endpoint);
+                std::cout << "Sent client ID to the connected client: " << client_id << std::endl;
+                client_id++;
 
                 if (clients.size() == 2) {
                     std::string client1_info = clients[1].address().to_string() + ":" + std::to_string(clients[1].port());

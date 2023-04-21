@@ -1,3 +1,4 @@
+// client.cpp
 #include <iostream>
 #include <boost/asio.hpp>
 
@@ -24,32 +25,45 @@ int main()
 
         char data[1024];
         udp::endpoint sender_endpoint;
-        size_t len = socket.receive_from(boost::asio::buffer(data), sender_endpoint);
-        std::cout << "Received peer information from the rendezvous server." << std::endl;
+                size_t len = socket.receive_from(boost::asio::buffer(data), sender_endpoint);
+        std::cout << "Received ID from the rendezvous server." << std::endl;
 
         std::string received_data(data, len);
-        std::string peer_ip = received_data.substr(0, received_data.find(':'));
-        int peer_port = std::stoi(received_data.substr(received_data.find(':') + 1));
+        std::string id_prefix = "ID:";
+        if (received_data.substr(0, id_prefix.size()) == id_prefix) {
+            std::string client_id = received_data.substr(id_prefix.size());
+            std::cout << "Client ID: " << client_id << std::endl;
 
-        udp::endpoint peer_endpoint(boost::asio::ip::address::from_string(peer_ip), peer_port);
-        std::cout << "Peer endpoint: " << peer_endpoint << std::endl;
+            len = socket.receive_from(boost::asio::buffer(data), sender_endpoint);
+            std::cout << "Received peer information from the rendezvous server." << std::endl;
 
-        // Send a message to the peer client
-        std::string message = "Hello, peer!";
-        socket.send_to(boost::asio::buffer(message), peer_endpoint);
-        std::cout << "Sent message to peer: " << message << std::endl;
+            std::string peer_data(data, len);
+            std::string peer_ip = peer_data.substr(0, peer_data.find(':'));
+            int peer_port = std::stoi(peer_data.substr(peer_data.find(':') + 1));
 
-        // Receive a message from the peer client
-        char incoming_data[1024];
-        udp::endpoint incoming_endpoint;
-        size_t received_len = socket.receive_from(boost::asio::buffer(incoming_data), incoming_endpoint);
-        std::cout << "Received a message from peer." << std::endl;
+            udp::endpoint peer_endpoint(boost::asio::ip::address::from_string(peer_ip), peer_port);
+            std::cout << "Peer endpoint: " << peer_endpoint << std::endl;
 
-        std::string received_message(incoming_data, received_len);
-        std::cout << "Message from peer: " << received_message << std::endl;
+            // Send a message to the peer client
+            std::string message = "Hello, peer! This is client " + client_id;
+            socket.send_to(boost::asio::buffer(message), peer_endpoint);
+            std::cout << "Sent message to peer: " << message << std::endl;
+
+            // Receive a message from the peer client
+            char incoming_data[1024];
+            udp::endpoint incoming_endpoint;
+            size_t received_len = socket.receive_from(boost::asio::buffer(incoming_data), incoming_endpoint);
+            std::cout << "Received a message from peer." << std::endl;
+
+            std::string received_message(incoming_data, received_len);
+            std::cout << "Message from peer: " << received_message << std::endl;
+        } else {
+            std::cerr << "Failed to receive client ID from the server" << std::endl;
+        }
     }
     catch (std::exception &e)
     {
         std::cerr << e.what() << std::endl;
     }
 }
+
