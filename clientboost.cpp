@@ -9,7 +9,7 @@ int main() {
         boost::asio::io_context io_context;
 
         udp::resolver resolver(io_context);
-        udp::endpoint server_endpoint = *resolver.resolve(udp::v4(), "64.226.97.53", "8080").begin();
+        udp::endpoint server_endpoint = *resolver.resolve(udp::v4(), "64.226.97.53", "13579").begin();
         std::cout << "Rendezvous server endpoint resolved: " << server_endpoint << std::endl;
 
         udp::socket socket(io_context);

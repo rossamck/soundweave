@@ -1,3 +1,4 @@
+// server.cpp
 #include <iostream>
 #include <boost/asio.hpp>
 
@@ -7,7 +8,7 @@ int main() {
     try {
         boost::asio::io_context io_context;
 
-        udp::socket socket(io_context, udp::endpoint(udp::v4(), 8080));
+        udp::socket socket(io_context, udp::endpoint(udp::v4(), 13579));
         std::cout << "Server initialized, waiting for clients." << std::endl;
 
         std::vector<udp::endpoint> clients;
@@ -17,7 +18,10 @@ int main() {
             udp::endpoint sender_endpoint;
             size_t len = socket.receive_from(boost::asio::buffer(data), sender_endpoint);
 
-            if (std::string(data, len) == "connect") {
+            std::string received_data(data, len);
+            std::cout << "Received data from client: " << received_data << std::endl;
+
+            if (received_data == "connect") {
                 clients.push_back(sender_endpoint);
                 std::cout << "Client connected: " << sender_endpoint << std::endl;
 
