@@ -3,8 +3,10 @@
 
 using boost::asio::ip::udp;
 
-int main() {
-    try {
+int main()
+{
+    try
+    {
         std::cout << "Initialising client" << std::endl;
         boost::asio::io_context io_context;
 
@@ -16,7 +18,8 @@ int main() {
         socket.open(udp::v4());
         std::cout << "Client socket opened." << std::endl;
 
-        socket.send_to(boost::asio::buffer("connect"), server_endpoint);
+        std::string testmessage = "connect";
+        socket.send_to(boost::asio::buffer(testmessage.c_str(), testmessage.size()), server_endpoint);
         std::cout << "Connection request sent to the rendezvous server." << std::endl;
 
         char data[1024];
@@ -45,8 +48,8 @@ int main() {
         std::string received_message(incoming_data, received_len);
         std::cout << "Message from peer: " << received_message << std::endl;
     }
-    catch (std::exception& e) {
+    catch (std::exception &e)
+    {
         std::cerr << e.what() << std::endl;
     }
 }
-
