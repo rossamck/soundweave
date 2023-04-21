@@ -8,6 +8,7 @@ constexpr int NUM_CLIENTS = 3;
 
 int main() {
     try {
+        std::cout << "new server test" << std::endl;
         boost::asio::io_context io_context;
 
         udp::socket socket(io_context, udp::endpoint(udp::v4(), 13579));
