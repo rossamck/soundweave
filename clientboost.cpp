@@ -5,6 +5,8 @@
 using boost::asio::ip::udp;
 
 int main() {
+
+    std::cout << "Starting client!" << std::endl;
     try {
         boost::asio::io_context io_context;
 
