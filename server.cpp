@@ -1,15 +1,14 @@
-// server.cpp
 #include <iostream>
 #include <boost/asio.hpp>
 
 using boost::asio::ip::udp;
 
 int main() {
-    std::cout << "Starting server!" << std::endl;
     try {
         boost::asio::io_context io_context;
 
-        udp::socket socket(io_context, udp::endpoint(udp::v4(), 13579));
+        udp::socket socket(io_context, udp::endpoint(udp::v4(), 8080));
+        std::cout << "Server initialized, waiting for clients." << std::endl;
 
         std::vector<udp::endpoint> clients;
 
@@ -27,6 +26,7 @@ int main() {
                     std::string client2_info = clients[0].address().to_string() + ":" + std::to_string(clients[0].port());
                     socket.send_to(boost::asio::buffer(client1_info), clients[0]);
                     socket.send_to(boost::asio::buffer(client2_info), clients[1]);
+                    std::cout << "Sent client information to both clients." << std::endl;
                     clients.clear();
                 }
             }
