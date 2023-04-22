@@ -2,7 +2,7 @@
 .o
 recv
 
-autobuild/
+# autobuild/
 sync_project.sh
 test/
 dependencies/
