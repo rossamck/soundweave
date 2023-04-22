@@ -2,7 +2,7 @@
 #include <iostream>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
-
+#include <ifaddrs.h>
 #include <vector>
 
 using boost::asio::ip::udp;
@@ -73,12 +73,38 @@ void periodically_send_messages(ClientManager &client_manager, const std::string
     }
 }
 
+std::string get_local_ip()
+{
+    std::string local_ip;
+    struct ifaddrs *ifap, *ifa;
+    struct sockaddr_in *sa;
+
+    getifaddrs(&ifap);
+    for (ifa = ifap; ifa; ifa = ifa->ifa_next)
+    {
+        if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET)
+        {
+            sa = (struct sockaddr_in *)ifa->ifa_addr;
+            local_ip = inet_ntoa(sa->sin_addr);
+            if (local_ip != "127.0.0.1")
+            {
+                break;
+            }
+        }
+    }
+    freeifaddrs(ifap);
+    return local_ip;
+}
+
 int main()
 {
     try
     {
         std::cout << "new client test" << std::endl;
         std::cout << "Initialising client" << std::endl;
+
+        std::string local_ip = get_local_ip();
+        std::cout << "Local ip = " << local_ip << std::endl;
         boost::asio::io_context io_context;
 
         udp::resolver resolver(io_context);
@@ -89,7 +115,7 @@ int main()
         socket.open(udp::v4());
         std::cout << "Client socket opened." << std::endl;
 
-        std::string testmessage = "connect";
+        std::string testmessage = "connect|" + local_ip;
         socket.send_to(boost::asio::buffer(testmessage.c_str(), testmessage.size()), server_endpoint);
         std::cout << "Connection request sent to the rendezvous server." << std::endl;
 
@@ -169,7 +195,6 @@ int main()
                     ClientInfo new_client(new_client_ip, new_client_port);
                     client_manager.add_client(new_client);
                     std::cout << "New client joined the session: " << new_client_info << std::endl;
-                    
                 }
                 else if (received_message.substr(0, 7) == "Server:")
                 {
