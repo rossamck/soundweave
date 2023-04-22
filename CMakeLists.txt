@@ -14,13 +14,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Add RtAudio as a dependency
 add_subdirectory(deps/rtaudio)
 
-set(NETWORKING_SOURCES src/Networking/holepunch.cpp src/Networking/RTP.cpp)
+set(NETWORKING_SOURCES src/Networking/holepunch.cpp src/Networking/RTP.cpp src/Networking/ClientModule.cpp) # Update this line
 set(AUDIOCAPTURE_SOURCES src/AudioCapture/AudioCapture.cpp src/AudioCapture/PingPongBuffer.cpp)
-set(AUDIOWAVEFORM_SOURCES src/AudioPlayback/AudioWaveform.cpp src/AudioPlayback/RawAudioWriter.cpp ) # Add this line
+set(AUDIOWAVEFORM_SOURCES src/AudioPlayback/AudioWaveform.cpp src/AudioPlayback/RawAudioWriter.cpp)
 set(CMAKE_EXE_LINKER_FLAGS "-pthread")
 
 add_executable(send ${NETWORKING_SOURCES} ${AUDIOCAPTURE_SOURCES} src/holepunchrtp2.cpp)
-add_executable(receive ${NETWORKING_SOURCES} ${AUDIOCAPTURE_SOURCES} ${AUDIOWAVEFORM_SOURCES} src/holepunchwaveform.cpp) # Update this line
+add_executable(receive ${NETWORKING_SOURCES} ${AUDIOCAPTURE_SOURCES} ${AUDIOWAVEFORM_SOURCES} src/holepunchwaveform.cpp)
 
 find_package(ALSA REQUIRED)
 
@@ -32,11 +32,14 @@ if (NOT TARGET SDL2::SDL2)
         INTERFACE_INCLUDE_DIRECTORIES "${SDL2_INCLUDE_DIRS}")
 endif()
 
-target_link_libraries(send PRIVATE ALSA::ALSA SDL2::SDL2 rtaudio)
-target_link_libraries(receive PRIVATE ALSA::ALSA SDL2::SDL2 rtaudio)
+# Find Boost libraries
+find_package(Boost REQUIRED COMPONENTS system thread)
 
-target_include_directories(send PRIVATE deps/rtaudio ${CMAKE_CURRENT_SOURCE_DIR}/src) # Update this line
-target_include_directories(receive PRIVATE deps/rtaudio ${CMAKE_CURRENT_SOURCE_DIR}/src) # Update this line
+target_link_libraries(send PRIVATE ALSA::ALSA SDL2::SDL2 rtaudio Boost::system Boost::thread) # Update this line
+target_link_libraries(receive PRIVATE ALSA::ALSA SDL2::SDL2 rtaudio Boost::system Boost::thread) # Update this line
+
+target_include_directories(send PRIVATE deps/rtaudio ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(receive PRIVATE deps/rtaudio ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 add_custom_target(clean-all
                   COMMAND ${CMAKE_COMMAND} -P "${CMAKE_SOURCE_DIR}/CleanAll.cmake"
