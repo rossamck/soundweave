@@ -2,8 +2,18 @@
 #include <iostream>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
-#include <ifaddrs.h>
 #include <vector>
+#include <string>
+
+
+
+#ifdef _WIN32
+#include <boost/asio/ip/host_name.hpp>
+#else
+#include <ifaddrs.h>
+#include <arpa/inet.h>
+#endif
+
 
 using boost::asio::ip::udp;
 
@@ -76,6 +86,26 @@ void periodically_send_messages(ClientManager &client_manager, const std::string
 std::string get_local_ip()
 {
     std::string local_ip;
+    
+    #ifdef _WIN32
+    try {
+        boost::asio::io_service ios;
+        boost::asio::ip::tcp::resolver resolver(ios);
+        boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
+        boost::asio::ip::tcp::resolver::iterator it = resolver.resolve(query);
+
+        boost::asio::ip::tcp::endpoint endpoint;
+        while (it != boost::asio::ip::tcp::resolver::iterator()) {
+            endpoint = *it++;
+            if (endpoint.address().is_v4() && !endpoint.address().is_loopback()) {
+                local_ip = endpoint.address().to_string();
+                break;
+            }
+        }
+    } catch (const std::exception &e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
+    #else
     struct ifaddrs *ifap, *ifa;
     struct sockaddr_in *sa;
 
@@ -93,8 +123,11 @@ std::string get_local_ip()
         }
     }
     freeifaddrs(ifap);
+    #endif
+    
     return local_ip;
 }
+
 
 int main()
 {
