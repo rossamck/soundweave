@@ -54,7 +54,7 @@ void RTP::SendPacket(const void* data, int size, int sockfd_) {
 
  int RTP::GetLocalPort() {
     // Get the local address and port associated with the socket
-    struct sockaddr_in sock_addr;
+    struct sockaddr_in sock_addr; 
     socklen_t sock_addr_len = sizeof(sock_addr);
     if (getsockname(sockfd_, (struct sockaddr*)&sock_addr, &sock_addr_len) < 0) {
       throw std::runtime_error("Error getting sock name");

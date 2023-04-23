@@ -14,7 +14,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Add RtAudio as a dependency
 add_subdirectory(deps/rtaudio)
 
-set(NETWORKING_SOURCES src/Networking/holepunch.cpp src/Networking/RTP.cpp src/Networking/ClientModule.cpp) # Update this line
+set(NETWORKING_SOURCES src/Networking/holepunch.cpp src/Networking/RTP.cpp src/Networking/ClientManager.cpp) # Update this line
 set(AUDIOCAPTURE_SOURCES src/AudioCapture/AudioCapture.cpp src/AudioCapture/PingPongBuffer.cpp)
 set(AUDIOWAVEFORM_SOURCES src/AudioPlayback/AudioWaveform.cpp src/AudioPlayback/RawAudioWriter.cpp)
 set(CMAKE_EXE_LINKER_FLAGS "-pthread")

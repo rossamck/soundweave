@@ -3,6 +3,8 @@
 #include <vector>
 #include <sstream>
 #include <map>
+#include <boost/asio/ip/tcp.hpp>
+#include <thread>
 
 using boost::asio::ip::udp;
 
@@ -96,7 +98,6 @@ void print_clients_in_session(int session_id, const SessionManager &session_mana
     }
 }
 
-
 void send_client_info_to_new_client(udp::socket &socket, const ClientInfo &new_client, const std::vector<ClientInfo> &existing_clients)
 {
     for (const auto &client : existing_clients)
@@ -105,9 +106,12 @@ void send_client_info_to_new_client(udp::socket &socket, const ClientInfo &new_c
         {
             ClientInfo client_info = client;
             client_info.action = "CONNECT_PEER";
-            if (client.public_ip == new_client.public_ip) {
+            if (client.public_ip == new_client.public_ip)
+            {
                 client_info.target_ip = client.local_ip;
-            } else {
+            }
+            else
+            {
                 client_info.target_ip = client.public_ip;
             }
             std::string serialized_data = client_info.serialize();
@@ -117,7 +121,6 @@ void send_client_info_to_new_client(udp::socket &socket, const ClientInfo &new_c
     }
 }
 
-
 void send_new_client_info_to_existing_clients(udp::socket &socket, const ClientInfo &new_client, const std::vector<ClientInfo> &existing_clients)
 {
     for (const auto &client : existing_clients)
@@ -126,9 +129,12 @@ void send_new_client_info_to_existing_clients(udp::socket &socket, const ClientI
         {
             ClientInfo client_info = new_client;
             client_info.action = "CONNECT_PEER";
-            if (client.public_ip == new_client.public_ip) {
+            if (client.public_ip == new_client.public_ip)
+            {
                 client_info.target_ip = new_client.local_ip;
-            } else {
+            }
+            else
+            {
                 client_info.target_ip = new_client.public_ip;
             }
             std::string serialized_data = client_info.serialize();
@@ -138,7 +144,32 @@ void send_new_client_info_to_existing_clients(udp::socket &socket, const ClientI
     }
 }
 
+// new
+void handle_tcp_connections(boost::asio::io_context &io_context, unsigned short port, SessionManager &session_manager)
+{
+    try
+    {
+        std::cout << "Starting TCP listener" << std::endl;
+        boost::asio::ip::tcp::acceptor acceptor(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port));
 
+        while (true)
+        {
+            boost::asio::ip::tcp::socket client_socket(io_context);
+            acceptor.accept(client_socket);
+
+            // Print a message when a client connects over TCP
+            std::string client_ip = client_socket.remote_endpoint().address().to_string();
+            unsigned short client_port = client_socket.remote_endpoint().port();
+            std::cout << "Client connected to TCP socket: " << client_ip << ":" << client_port << std::endl;
+
+            // Handle the connected client
+        }
+    }
+    catch (std::exception &e)
+    {
+        std::cerr << "Exception in handle_tcp_connections: " << e.what() << std::endl;
+    }
+}
 
 
 int main()
@@ -151,6 +182,9 @@ int main()
     udp::socket socket(io_context, udp::endpoint(udp::v4(), 13579));
     std::cout << "Server initialized, waiting for clients." << std::endl;
 
+    unsigned short tcp_port = 24680;
+    std::thread tcp_thread(handle_tcp_connections, std::ref(io_context), tcp_port, std::ref(session_manager));
+
     std::vector<ClientInfo> clients;
     int client_id = 1;
     while (true)
@@ -160,7 +194,6 @@ int main()
         size_t len = socket.receive_from(boost::asio::buffer(data), sender_endpoint);
 
         std::string received_data(data, len);
-        
 
         if (received_data.substr(0, 7) == "connect")
         {
@@ -189,20 +222,21 @@ int main()
             {
                 std::cout << "Warning: Client with public IP " << own_info.public_ip << " is already in the session." << std::endl;
             }
-            
-            
-                std::cout << "Adding client to session ID: " << session_id << std::endl;
-                session_manager.add_client_to_session(session_id, own_info);
-                send_client_info_to_new_client(socket, own_info, session_manager.get_clients_in_session(session_id));
-                send_new_client_info_to_existing_clients(socket, own_info, session_manager.get_clients_in_session(session_id));
 
-                print_clients_in_session(session_id, session_manager);
-            
+            std::cout << "Adding client to session ID: " << session_id << std::endl;
+            session_manager.add_client_to_session(session_id, own_info);
+            send_client_info_to_new_client(socket, own_info, session_manager.get_clients_in_session(session_id));
+            send_new_client_info_to_existing_clients(socket, own_info, session_manager.get_clients_in_session(session_id));
+
+            print_clients_in_session(session_id, session_manager);
 
             client_id++; // increment client ID
         }
-        else {
+        else
+        {
             std::cout << "Received from client: " << received_data << std::endl;
         }
     }
+        tcp_thread.join();
+
 }
