@@ -1,4 +1,5 @@
 #include <boost/asio.hpp>
+#include <boost/thread.hpp>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -13,7 +14,7 @@
 #endif
 
 using boost::asio::ip::tcp;
-
+using boost::asio::ip::udp;
 
 struct ClientInfo
 {
@@ -68,16 +69,83 @@ struct ClientInfo
   }
 };
 
-class Client
+class PeerManager
 {
 public:
-  Client(const std::string &server_address, const std::string &server_port)
-      : io_context_(),
-        resolver_(io_context_),
-        socket_(io_context_)
+  PeerManager(udp::socket &socket) : socket_(socket) {}
+
+  void add_client(const ClientInfo &client_info)
   {
-    server_endpoint_ = *resolver_.resolve(server_address, server_port);
+    clients_.push_back(client_info);
+    std::cout << "Added client with IP: " << client_info.target_ip << ", port: " << client_info.port << std::endl;
   }
+
+  void send_data_to_all(const std::string &message)
+  {
+    for (const auto &client_info : clients_)
+    {
+      udp::endpoint client_endpoint(boost::asio::ip::address::from_string(client_info.target_ip), client_info.udp_port);
+      boost::thread client_thread(&PeerManager::send_data_to_client, this, client_endpoint, message);
+      client_threads_.push_back(boost::move(client_thread));
+    }
+    for (auto &thread : client_threads_)
+    {
+      thread.join();
+    }
+    client_threads_.clear();
+  }
+
+  void print_clients()
+  {
+    std::cout << "Connected clients:" << std::endl;
+    for (const auto &client_info : clients_)
+    {
+      std::cout << "- " << client_info.target_ip << ":" << client_info.port << std::endl;
+    }
+  }
+
+  unsigned short get_bound_port() const
+{
+    boost::system::error_code ec;
+    udp::endpoint local_endpoint = socket_.local_endpoint(ec);
+    if (ec)
+    {
+        std::cerr << "Error: " << ec.message() << std::endl;
+        return 0;
+    }
+    return local_endpoint.port();
+}
+
+
+private:
+  void send_data_to_client(const udp::endpoint &client_endpoint, const std::string &message)
+  {
+    socket_.send_to(boost::asio::buffer(message), client_endpoint);
+    std::cout << "Sent message to client endpoint: " << client_endpoint << std::endl;
+  }
+
+  udp::socket &socket_;
+  std::vector<ClientInfo> clients_;
+  std::vector<boost::thread> client_threads_;
+};
+
+class Client
+{
+
+public:
+    Client(const std::string& server_address, const std::string& server_port)
+        : io_context_(),
+          resolver_(io_context_),
+          socket_(io_context_),
+          udp_socket_(io_context_, udp::endpoint(udp::v4(), 0)), // Create an unbound UDP socket
+          peer_manager_(udp_socket_) // Add a PeerManager instance
+    {
+        server_endpoint_ = *resolver_.resolve(server_address, server_port);
+        udp_server_endpoint_ = *udp::resolver(io_context_).resolve(udp::v4(), server_address, "12346");
+
+    }
+
+
 
   void connect()
   {
@@ -88,6 +156,9 @@ public:
 
     // Start the reader thread
     reader_thread_ = std::thread(&Client::read_messages, this);
+
+    // send_initial_udp_message();
+
   }
 
   void send_message(const std::string &message)
@@ -101,15 +172,51 @@ public:
     reader_thread_.join();
   }
 
+  void send_message_to_peers(const std::string &message)
+  {
+    peer_manager_.send_data_to_all(message);
+  }
+
+    void send_initial_udp_message()
+    {
+        std::string initial_message = "Hello from UDP client!\n";
+        udp_socket_.send_to(boost::asio::buffer(initial_message), udp_server_endpoint_);
+        std::cout << "Initial message sent to UDP server at " << udp_server_endpoint_ << std::endl;
+
+        // Print the local endpoint (including the randomly chosen port)
+        boost::system::error_code ec;
+        udp::endpoint local_endpoint = udp_socket_.local_endpoint(ec);
+        if (ec)
+        {
+            std::cerr << "Error: " << ec.message() << std::endl;
+        }
+        else
+        {
+            std::cout << "Local UDP endpoint: " << local_endpoint << std::endl;
+        }
+    }
+
+
 private:
   boost::asio::io_context io_context_;
   tcp::resolver resolver_;
   tcp::socket socket_;
   tcp::endpoint server_endpoint_;
   std::thread reader_thread_;
+
   std::unordered_map<int, ClientInfo> peer_clients_;
   std::mutex peer_clients_mutex_;
   ClientInfo self_info_;
+
+  PeerManager peer_manager_; // Declare a PeerManager instance
+
+std::array<char, 1024> recv_buffer_;
+
+    udp::socket udp_socket_; // Add this line
+    udp::endpoint udp_server_endpoint_;
+
+
+
 
   std::string get_local_ip() const
   {
@@ -192,9 +299,11 @@ private:
         {
           std::unique_lock<std::mutex> lock(peer_clients_mutex_);
           peer_clients_[new_peer.id] = new_peer;
+          peer_manager_.add_client(new_peer);
         }
 
         std::cout << "Received and stored peer info: " << peer_info << std::endl;
+        print_connected_clients();
       }
       else if (message.find("SELF_INFO:") == 0)
       {
@@ -202,13 +311,17 @@ private:
         std::string self_info_str = message.substr(10);      // Remove the "SELF_INFO:" prefix
         self_info_ = ClientInfo::deserialize(self_info_str); // update self_info with the new self info received from the server
 
+      // Bind the UDP socket to the received port
+    // udp_socket_.open(udp::v4());
+    // udp_socket_.bind(udp::endpoint(udp::v4(), self_info_.udp_port));
+
+
         std::cout << "Received self info: " << self_info_str << std::endl;
       }
       else
       {
         // This is a general message from the server
         std::cout << "Received: " << message << std::endl;
-        print_connected_clients();
       }
     }
   }
@@ -230,7 +343,9 @@ int main(int argc, char *argv[])
   {
     std::cout << "Starting client" << std::endl;
     Client client("64.226.97.53", "12345");
+    client.send_initial_udp_message();
     client.connect();
+    
     while (true)
     {
       std::string message;
@@ -241,6 +356,8 @@ int main(int argc, char *argv[])
         break;
 
       client.send_message(message);
+      std::string peer_message = "sup peer!";
+      client.send_message_to_peers(peer_message);
     }
 
     client.close();

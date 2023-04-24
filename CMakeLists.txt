@@ -44,3 +44,6 @@ target_include_directories(receive PRIVATE deps/rtaudio ${CMAKE_CURRENT_SOURCE_D
 add_custom_target(clean-all
                   COMMAND ${CMAKE_COMMAND} -P "${CMAKE_SOURCE_DIR}/CleanAll.cmake"
                   COMMENT "Cleaning up the build directory, executables, and CMake cache")
+
+# Add the -g debugging command
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")

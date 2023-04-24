@@ -6,9 +6,16 @@
 #include <vector>
 #include <thread>
 
-using boost::asio::ip::tcp;
-using namespace std::chrono_literals;
 
+using boost::asio::ip::tcp;
+using boost::asio::ip::udp;
+
+using namespace std::chrono_literals;
+using UpdateUdpPortCallback = std::function<void(const std::string&, unsigned short)>;
+
+
+unsigned short old_udp_port = 0;
+unsigned short new_udp_port = 0;
 
 
 struct ClientInfo
@@ -22,33 +29,35 @@ struct ClientInfo
   unsigned short udp_port;
 
   ClientInfo() : id(0), public_ip(""), local_ip(""), target_ip(""), action(""), port(0), udp_port(0) {}
+  ClientInfo(int id, const std::string &public_ip, const std::string &local_ip = "", unsigned short port = 0, unsigned short udp_port = 0)
+      : id(id), public_ip(public_ip), local_ip(local_ip), target_ip(public_ip), action(""), port(port), udp_port(udp_port) {}
 
-  ClientInfo(int id, const std::string& public_ip, const std::string& local_ip = "", unsigned short port = 0)
-      : id(id), public_ip(public_ip), local_ip(local_ip), target_ip(public_ip), action(""), port(port), udp_port(port + 1) {}
-
- // Serialize the struct into a string
-std::string serialize() const
-{
-  std::ostringstream oss;
-  oss << id << " " << public_ip << " " << local_ip << " " << target_ip << " ";
-  if (action.empty()) {
-    oss << "_";
-  } else {
-    oss << action;
+  // Serialize the struct into a string
+  std::string serialize() const
+  {
+    std::ostringstream oss;
+    oss << id << " " << public_ip << " " << local_ip << " " << target_ip << " ";
+    if (action.empty())
+    {
+      oss << "_";
+    }
+    else
+    {
+      oss << action;
+    }
+    oss << " " << port << " " << udp_port;
+    return oss.str();
   }
-  oss << " " << port << " " << udp_port;
-  return oss.str();
-}
-
 
   // Deserialize the string back into the struct
-  static ClientInfo deserialize(const std::string& str)
-  {
-    std::istringstream iss(str);
-    ClientInfo clientInfo;
-    iss >> clientInfo.id >> clientInfo.public_ip >> clientInfo.local_ip >> clientInfo.target_ip >> clientInfo.action >> clientInfo.port >> clientInfo.udp_port;
-    return clientInfo;
-  }
+// Deserialize the string back into the struct
+static ClientInfo deserialize(const std::string& str)
+{
+  std::istringstream iss(str);
+  ClientInfo clientInfo;
+  iss >> clientInfo.id >> clientInfo.public_ip >> clientInfo.local_ip >> clientInfo.target_ip >> clientInfo.action >> clientInfo.port >> clientInfo.udp_port;
+  return clientInfo;
+}
 
   void print() const
   {
@@ -119,14 +128,19 @@ public:
   {
   }
 
+  int get_session_id() const
+{
+  return session_id_;
+}
+
+
   void start()
   {
     // read_local_ip();
     start_check_in();
-
   }
 
- void send_self_info()
+  void send_self_info()
   {
     auto self(shared_from_this());
     boost::asio::async_write(socket_, boost::asio::buffer("SELF_INFO:" + client_info_.serialize() + "\n"),
@@ -139,51 +153,57 @@ public:
                              });
   }
 
-void send_client_info_to_others(const std::string &message)
-{
-  auto self(shared_from_this());
-  boost::asio::async_write(socket_, boost::asio::buffer("PEER_INFO:" + message),
-                           [this, self](const boost::system::error_code &ec, std::size_t)
-                           {
-                             if (!ec)
+  void send_client_info_to_others(const std::string &message)
+  {
+    auto self(shared_from_this());
+    boost::asio::async_write(socket_, boost::asio::buffer("PEER_INFO:" + message),
+                             [this, self](const boost::system::error_code &ec, std::size_t)
                              {
-                               read_message();
-                             }
-                           });
-}
+                               if (!ec)
+                               {
+                                 read_message();
+                               }
+                             });
+  }
 
-
-void read_local_ip(std::function<void()> callback)
-{
-  auto self(shared_from_this());
-  boost::asio::async_read_until(socket_, buffer_, '\n',
-                                [this, self, callback](const boost::system::error_code &ec, std::size_t)
-                                {
-                                  if (!ec)
+  void read_local_ip(std::function<void()> callback)
+  {
+    auto self(shared_from_this());
+    boost::asio::async_read_until(socket_, buffer_, '\n',
+                                  [this, self, callback](const boost::system::error_code &ec, std::size_t)
                                   {
-                                    std::istream is(&buffer_);
-                                    std::string local_ip;
-                                    std::getline(is, local_ip);
-
-                                    // Update the client_info_ object with the received local IP
-                                    client_info_.local_ip = local_ip;
-                                    std::cout << "new test " << std::endl;
-                                    client_info_.print();
-
-                                    // Update the session_manager_ with the new client_info_
-                                    session_manager_.add_client_to_session(session_id_, client_info_);
-
-                                    send_self_info();  // Move this line here
-                                    read_message();
-
-                                    if (callback)
+                                    if (!ec)
                                     {
-                                      callback();
-                                    }
-                                  }
-                                });
-}
+                                      std::istream is(&buffer_);
+                                      std::string local_ip;
+                                      std::getline(is, local_ip);
 
+                                      while (new_udp_port == old_udp_port) {
+                                        std::cout << "not ready" << std::endl;
+                                      }
+                                      
+                                      client_info_.udp_port = new_udp_port;
+                                      old_udp_port = new_udp_port;
+                                      // Update the client_info_ object with the received local IP
+                                      client_info_.local_ip = local_ip;
+                                      std::cout << "new test " << std::endl;
+                                      client_info_.print();
+
+
+
+                                      // Update the session_manager_ with the new client_info_
+                                      session_manager_.add_client_to_session(session_id_, client_info_);
+
+                                      send_self_info(); // Move this line here
+                                      read_message();
+
+                                      if (callback)
+                                      {
+                                        callback();
+                                      }
+                                    }
+                                  });
+  }
 
   ClientInfo client_info_;
 
@@ -242,19 +262,15 @@ private:
                                    } });
   }
 
-
-
-
-
-  
-
   tcp::socket socket_;
   boost::asio::streambuf buffer_;
   boost::asio::steady_timer check_in_timer_{socket_.get_executor()};
 
   SessionManager &session_manager_;
   int session_id_;
-  
+
+
+
 };
 
 class Server
@@ -265,23 +281,41 @@ public:
   {
     session_id_ = session_manager_.create_session();
     do_accept();
+
+     update_udp_port_callback_ = [this](const std::string &sender_ip, unsigned short udp_port) {
+      std::cout << "CALLBACK" << std::endl;
+      
+      new_udp_port = udp_port;
+      std::cout << "Port is " << new_udp_port << std::endl;
+        // i need the udp_port to update the value in the read_local_ip
+     };
   }
 
-private:
-void do_accept()
-{
-  acceptor_.async_accept(
-      [this](boost::system::error_code ec, tcp::socket socket)
-      {
-        if (!ec)
-        {
-          auto client_ip = socket.remote_endpoint().address().to_string();
-          auto client_port = socket.remote_endpoint().port();
-          ClientInfo client_info(next_client_id_++, client_ip, "", client_port);
-          auto new_client = std::make_shared<ClientSession>(std::move(socket), session_manager_, session_id_, client_info);
+    UpdateUdpPortCallback getUpdateUdpPortCallback() const {
+        return update_udp_port_callback_;
+    }
 
-          new_client->read_local_ip([this, new_client]()
+   SessionManager& getSessionManager() {
+  return session_manager_;
+}
+
+
+
+private:
+  void do_accept()
+  {
+    acceptor_.async_accept(
+        [this](boost::system::error_code ec, tcp::socket socket)
+        {
+          if (!ec)
           {
+            auto client_ip = socket.remote_endpoint().address().to_string();
+            auto client_port = socket.remote_endpoint().port();
+            ClientInfo client_info(next_client_id_++, client_ip, "", client_port);
+            auto new_client = std::make_shared<ClientSession>(std::move(socket), session_manager_, session_id_, client_info);
+
+            new_client->read_local_ip([this, new_client]()
+                                      {
             // Send the information of the currently connected clients to the newly connecting client
             for (const auto &client : clients_)
             {
@@ -299,16 +333,14 @@ void do_accept()
               {
                 client->send_client_info_to_others(new_client_info);
               }
-            }
-          });
+            } });
 
-          new_client->start();
-        }
+            new_client->start();
+          }
 
-        do_accept();
-      });
-}
-
+          do_accept();
+        });
+  }
 
   tcp::acceptor acceptor_;
   int session_id_;
@@ -317,7 +349,82 @@ void do_accept()
   SessionManager session_manager_;
 
   std::vector<std::shared_ptr<ClientSession>> clients_;
+  UpdateUdpPortCallback update_udp_port_callback_;
 };
+
+
+
+
+class UdpServer
+{
+public:
+  UdpServer(boost::asio::io_context &io_context, short port, SessionManager& session_manager, UpdateUdpPortCallback callback)
+      : socket_(io_context, udp::endpoint(udp::v4(), port)), session_manager_(session_manager), update_udp_port_callback_(callback)
+  {
+    do_receive();
+  }
+
+  unsigned short get_udp_port() const
+  {
+    return udp_port_;
+  }
+
+private:
+  void do_receive()
+  {
+    socket_.async_receive_from(
+        boost::asio::buffer(data_, max_length), sender_endpoint_,
+        [this](boost::system::error_code ec, std::size_t bytes_recvd)
+        {
+          if (!ec && bytes_recvd > 0)
+          {
+            std::string message(data_, bytes_recvd);
+            std::cout << "Received message: " << message << std::endl;
+
+            unsigned short udp_port = sender_endpoint_.port();
+            std::string sender_ip = sender_endpoint_.address().to_string();
+
+            std::cout << "Sender's UDP port: " << udp_port << std::endl;
+
+            // Call the callback function to update the client's UDP port
+            update_udp_port_callback_(sender_ip, udp_port);
+
+            do_receive();
+          }
+          else
+          {
+            do_receive();
+          }
+        });
+  }
+
+  void do_send(std::size_t length)
+  {
+    socket_.async_send_to(
+        boost::asio::buffer(data_, length), sender_endpoint_,
+        [this](boost::system::error_code /*ec*/, std::size_t /*bytes_sent*/)
+        {
+          do_receive();
+        });
+  }
+
+  udp::socket socket_;
+  udp::endpoint sender_endpoint_;
+  unsigned short udp_port_;
+  SessionManager& session_manager_;
+  UpdateUdpPortCallback update_udp_port_callback_;
+
+  enum
+  {
+    max_length = 1024
+  };
+  char data_[max_length];
+};
+
+
+
+
+
 
 int main(int argc, char *argv[])
 {
@@ -325,10 +432,16 @@ int main(int argc, char *argv[])
   {
     std::cout << "Starting server" << std::endl;
     boost::asio::io_context io_context;
-    short port = 12345;
-    tcp::endpoint endpoint(tcp::v4(), port);
+    short tcp_port = 12345;
+    short udp_port = 12346;
+    tcp::endpoint tcp_endpoint(tcp::v4(), tcp_port);
+    udp::endpoint udp_endpoint(udp::v4(), udp_port);
 
-    Server server(io_context, port); // Update this line
+    Server server(io_context, tcp_port);
+UdpServer udp_server(io_context, udp_port, server.getSessionManager(), server.getUpdateUdpPortCallback());
+
+
+
     io_context.run();
   }
   catch (std::exception &e)
