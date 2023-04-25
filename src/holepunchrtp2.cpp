@@ -1,10 +1,12 @@
+// client.cpp
+#include <iostream>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
-#include <iostream>
+#include <vector>
 #include <string>
-#include <thread>
-#include <unordered_map>
-#include <mutex>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/bind/bind.hpp>
+#include <functional>
 
 #ifdef _WIN32
 #include <boost/asio/ip/host_name.hpp>
@@ -13,359 +15,291 @@
 #include <arpa/inet.h>
 #endif
 
-using boost::asio::ip::tcp;
+#include "Networking/ClientManager.h"
+#include "Networking/ClientInfo.h"
+#include "Networking/RTP.h"
+#include "AudioCapture/AudioCapture.h"
+
 using boost::asio::ip::udp;
+using namespace boost::placeholders;
 
-struct ClientInfo
+void audio_data_callback(const std::vector<short> &audio_data, ClientManager &client_manager)
 {
-  int id;
-  std::string public_ip;
-  std::string local_ip;
-  std::string target_ip;
-  std::string action;
-  unsigned short port;
-  unsigned short udp_port;
-
-  ClientInfo() : id(0), public_ip(""), local_ip(""), target_ip(""), action(""), port(0), udp_port(0) {}
-
-  ClientInfo(int id, const std::string &public_ip, const std::string &local_ip = "", unsigned short port = 0)
-      : id(id), public_ip(public_ip), local_ip(local_ip), target_ip(public_ip), action(""), port(port), udp_port(port + 1) {}
-
-  // Serialize the struct into a string
-  std::string serialize() const
-  {
-    std::ostringstream oss;
-    oss << id << " " << public_ip << " " << local_ip << " " << target_ip << " ";
-    if (action.empty())
-    {
-      oss << "_";
-    }
-    else
-    {
-      oss << action;
-    }
-    oss << " " << port << " " << udp_port;
-    return oss.str();
-  }
-
-  // Deserialize the string back into the struct
-  static ClientInfo deserialize(const std::string &str)
-  {
-    std::istringstream iss(str);
-    ClientInfo clientInfo;
-    iss >> clientInfo.id >> clientInfo.public_ip >> clientInfo.local_ip >> clientInfo.target_ip >> clientInfo.action >> clientInfo.port >> clientInfo.udp_port;
-    return clientInfo;
-  }
-
-  void print() const
-  {
-    std::cout << "ID: " << id << std::endl;
-    std::cout << "Public IP: " << public_ip << std::endl;
-    std::cout << "Local IP: " << local_ip << std::endl;
-    std::cout << "Target IP: " << target_ip << std::endl;
-    std::cout << "Action: " << action << std::endl;
-    std::cout << "Port: " << port << std::endl;
-    std::cout << "UDP Port: " << udp_port << std::endl;
-  }
-};
-
-class PeerManager
-{
-public:
-  PeerManager(udp::socket &socket) : socket_(socket) {}
-
-  void add_client(const ClientInfo &client_info)
-  {
-    clients_.push_back(client_info);
-    std::cout << "Added client with IP: " << client_info.target_ip << ", port: " << client_info.port << std::endl;
-  }
-
-  void send_data_to_all(const std::string &message)
-  {
-    for (const auto &client_info : clients_)
-    {
-      udp::endpoint client_endpoint(boost::asio::ip::address::from_string(client_info.target_ip), client_info.udp_port);
-      boost::thread client_thread(&PeerManager::send_data_to_client, this, client_endpoint, message);
-      client_threads_.push_back(boost::move(client_thread));
-    }
-    for (auto &thread : client_threads_)
-    {
-      thread.join();
-    }
-    client_threads_.clear();
-  }
-
-  void print_clients()
-  {
-    std::cout << "Connected clients:" << std::endl;
-    for (const auto &client_info : clients_)
-    {
-      std::cout << "- " << client_info.target_ip << ":" << client_info.port << std::endl;
-    }
-  }
-
-  unsigned short get_bound_port() const
-{
-    boost::system::error_code ec;
-    udp::endpoint local_endpoint = socket_.local_endpoint(ec);
-    if (ec)
-    {
-        std::cerr << "Error: " << ec.message() << std::endl;
-        return 0;
-    }
-    return local_endpoint.port();
+    // std::cout << "Captured audio data with " << audio_data.size() << " samples" << std::endl;
+    // I WANT TO SEND THE DATA HERE
+    client_manager.send_audio_to_all(audio_data);
 }
 
+class TcpClient
+{
+public:
+    TcpClient(boost::asio::io_context &io_context, const std::string &server_ip, unsigned short server_tcp_port)
+        : io_context_(io_context),
+          socket_(io_context),
+          resolver_(io_context),
+          server_ip_(server_ip),
+          server_tcp_port_(server_tcp_port)
+    {
+        std::cout << "Initialising TCP client" << std::endl;
+    }
+
+    void connect()
+    {
+        std::cout << "Connecting to server..." << std::endl;
+        boost::asio::ip::tcp::resolver::query query(server_ip_, std::to_string(server_tcp_port_));
+        boost::asio::ip::tcp::resolver::iterator endpoint_iterator = resolver_.resolve(query);
+        boost::asio::connect(socket_, endpoint_iterator);
+        std::string testmessage = "SYN\n";
+        write(testmessage);
+    }
+
+    void run()
+    {
+        std::cout << "Starting read!" << std::endl;
+        read();
+    }
+
+    void read()
+    {
+        boost::asio::async_read_until(socket_, read_buffer_, '\n',
+                                      boost::bind(&TcpClient::handle_read, this,
+                                                  boost::asio::placeholders::error,
+                                                  boost::asio::placeholders::bytes_transferred));
+    }
+
+    void handle_read(const boost::system::error_code &error, std::size_t bytes_transferred)
+    {
+        if (!error)
+        {
+            std::istream is(&read_buffer_);
+            std::string received_data{std::istreambuf_iterator<char>(is), std::istreambuf_iterator<char>()};
+            std::cout << "Received TCP data: " << received_data << std::endl;
+            read(); // Continue reading data asynchronously
+        }
+        else
+        {
+            std::cerr << "Error reading TCP data: " << error.message() << std::endl;
+        }
+    }
+
+    void write(const std::string &message)
+    {
+        boost::asio::async_write(socket_, boost::asio::buffer(message),
+                                 [this](const boost::system::error_code &error, std::size_t bytes_transferred)
+                                 {
+                                     if (error)
+                                     {
+                                         std::cerr << "Error writing TCP data: " << error.message() << std::endl;
+                                     }
+                                 });
+    }
 
 private:
-  void send_data_to_client(const udp::endpoint &client_endpoint, const std::string &message)
-  {
-    socket_.send_to(boost::asio::buffer(message), client_endpoint);
-    std::cout << "Sent message to client endpoint: " << client_endpoint << std::endl;
-  }
-
-  udp::socket &socket_;
-  std::vector<ClientInfo> clients_;
-  std::vector<boost::thread> client_threads_;
+    boost::asio::io_context &io_context_;
+    boost::asio::ip::tcp::socket socket_;
+    boost::asio::ip::tcp::resolver resolver_;
+    std::string server_ip_;
+    unsigned short server_tcp_port_;
+    boost::asio::streambuf read_buffer_;
 };
 
 class Client
 {
-
 public:
-    Client(const std::string& server_address, const std::string& server_port)
-        : io_context_(),
-          resolver_(io_context_),
-          socket_(io_context_),
-          udp_socket_(io_context_, udp::endpoint(udp::v4(), 0)), // Create an unbound UDP socket
-          peer_manager_(udp_socket_) // Add a PeerManager instance
-    {
-        server_endpoint_ = *resolver_.resolve(server_address, server_port);
-        udp_server_endpoint_ = *udp::resolver(io_context_).resolve(udp::v4(), server_address, "12346");
+    Client(boost::asio::io_context &io_context, const std::string &server_ip, unsigned short server_udp_port, unsigned short server_tcp_port)
+        : io_context_(io_context),
+          socket_(io_context, udp::endpoint(udp::v4(), 0)),
+          server_ip_(server_ip),
+          server_port_(server_udp_port),
+          client_manager_(socket_),
+          audio_capture_("", true, false),
+          tcp_client_(io_context, server_ip, server_tcp_port) {}
 
+    void run()
+    {
+        io_context_.run();
+        start_async_receive();
     }
 
-
-
-  void connect()
-  {
-    boost::asio::connect(socket_, &server_endpoint_);
-
-    // Send local IP address to the server
-    boost::asio::write(socket_, boost::asio::buffer(get_local_ip() + "\n"));
-
-    // Start the reader thread
-    reader_thread_ = std::thread(&Client::read_messages, this);
-
-    // send_initial_udp_message();
-
-  }
-
-  void send_message(const std::string &message)
-  {
-    boost::asio::write(socket_, boost::asio::buffer(message + "\n"));
-  }
-
-  void close()
-  {
-    socket_.shutdown(tcp::socket::shutdown_both);
-    reader_thread_.join();
-  }
-
-  void send_message_to_peers(const std::string &message)
-  {
-    peer_manager_.send_data_to_all(message);
-  }
-
-    void send_initial_udp_message()
+    void initialize()
     {
-        std::string initial_message = "Hello from UDP client!\n";
-        udp_socket_.send_to(boost::asio::buffer(initial_message), udp_server_endpoint_);
-        std::cout << "Initial message sent to UDP server at " << udp_server_endpoint_ << std::endl;
+        // Get local IP address
+        std::string local_ip = get_local_ip();
+        std::cout << "Local IP: " << local_ip << std::endl;
 
-        // Print the local endpoint (including the randomly chosen port)
-        boost::system::error_code ec;
-        udp::endpoint local_endpoint = udp_socket_.local_endpoint(ec);
-        if (ec)
+        // Resolve server endpoint
+        udp::resolver resolver(io_context_);
+        server_endpoint = *resolver.resolve(udp::v4(), server_ip_, std::to_string(server_port_)).begin();
+
+        // Send "connect" message with local IP
+        std::string connect_message = "connect " + local_ip;
+        socket_.send_to(boost::asio::buffer(connect_message), server_endpoint);
+
+        // Receive client ID from the server
+        char data[1024];
+        size_t len = socket_.receive_from(boost::asio::buffer(data), sender_endpoint);
+        std::string raw_received_data(data, len);
+        std::cout << "Received initial data from server: " << raw_received_data << std::endl;
+
+        std::cout << "SUBSTR TEST:" << raw_received_data.substr(0, 9) << std::endl;
+        ;
+        if (raw_received_data.substr(0, 9) == "OWN_INFO:")
         {
-            std::cerr << "Error: " << ec.message() << std::endl;
+            std::cout << "RECEIVED OWN INFO!" << std::endl;
+            std::string received_data = raw_received_data.substr(9);
+
+            // Deserialize received data into a ClientInfo object
+            ClientInfo client_info = ClientInfo::deserialize(received_data);
+            client_info.print();
+            boost::thread sender_thread(std::bind(&Client::periodically_send_messages, this, std::placeholders::_1), std::to_string(client_info.id));
+
+            // Register the audio_data_callback with the AudioCapture object
+            audio_capture_.register_callback(std::bind(&Client::audio_data_callback, this, std::placeholders::_1));
+            audio_capture_.start();
+        }
+
+        // Start listening for incoming data
+        start_async_receive();
+
+        // Initialize the TCP client
+        tcp_client_.connect();
+        std::thread tcp_client_thread(&TcpClient::run, &tcp_client_);
+        tcp_client_thread.detach();
+    }
+
+    void start_async_receive()
+    {
+        socket_.async_receive_from(boost::asio::buffer(data, max_length), sender_endpoint,
+                                   boost::bind(&Client::handle_receive, this,
+                                               boost::asio::placeholders::error,
+                                               boost::asio::placeholders::bytes_transferred));
+    }
+
+    void handle_receive(const boost::system::error_code &error, std::size_t bytes_transferred)
+    {
+        if (!error)
+        {
+            std::string received_data(data, bytes_transferred);
+
+            // Check if the message is from the server or a peer
+            if (sender_endpoint == server_endpoint)
+            {
+                // Deserialize the received data into a ClientInfo object
+
+                ClientInfo received_client_info = ClientInfo::deserialize(received_data);
+
+                // If the received client information is not for the current client, add it to the ClientManager
+                client_manager_.add_client(received_client_info);
+                client_manager_.print_clients();
+            }
+            else
+            {
+                // Handle peer messages
+                std::cout << "Received data from peer (" << sender_endpoint << "): " << std::endl;
+                // std::cout << "Received data from peer (" << sender_endpoint << "): " << received_data << std::endl;
+            }
+
+            start_async_receive(); // Start listening for new data again
         }
         else
         {
-            std::cout << "Local UDP endpoint: " << local_endpoint << std::endl;
+            std::cerr << "Error receiving UDP data: " << error.message() << std::endl;
         }
     }
-
 
 private:
-  boost::asio::io_context io_context_;
-  tcp::resolver resolver_;
-  tcp::socket socket_;
-  tcp::endpoint server_endpoint_;
-  std::thread reader_thread_;
+    void audio_data_callback(const std::vector<short> &audio_data)
+    {
+        // ...
+        client_manager_.send_audio_to_all(audio_data);
+    }
 
-  std::unordered_map<int, ClientInfo> peer_clients_;
-  std::mutex peer_clients_mutex_;
-  ClientInfo self_info_;
-
-  PeerManager peer_manager_; // Declare a PeerManager instance
-
-std::array<char, 1024> recv_buffer_;
-
-    udp::socket udp_socket_; // Add this line
-    udp::endpoint udp_server_endpoint_;
-
-
-
-
-  std::string get_local_ip() const
-  {
-    std::string local_ip;
+    // Other member functions
+    std::string get_local_ip()
+    {
+        std::string local_ip;
 
 #ifdef _WIN32
-    try
-    {
-      boost::asio::ip::tcp::resolver resolver(io_context_);
-      boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
-      boost::asio::ip::tcp::resolver::iterator it = resolver.resolve(query);
-
-      boost::asio::ip::tcp::endpoint endpoint;
-      while (it != boost::asio::ip::tcp::resolver::iterator())
-      {
-        endpoint = *it++;
-        if (endpoint.address().is_v4() && !endpoint.address().is_loopback())
+        try
         {
-          local_ip = endpoint.address().to_string();
-          break;
+            boost::asio::io_service ios;
+            boost::asio::ip::tcp::resolver resolver(ios);
+            boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
+            boost::asio::ip::tcp::resolver::iterator it = resolver.resolve(query);
+
+            boost::asio::ip::tcp::endpoint endpoint;
+            while (it != boost::asio::ip::tcp::resolver::iterator())
+            {
+                endpoint = *it++;
+                if (endpoint.address().is_v4() && !endpoint.address().is_loopback())
+                {
+                    local_ip = endpoint.address().to_string();
+                    break;
+                }
+            }
         }
-      }
-    }
-    catch (const std::exception &e)
-    {
-      std::cerr << "Error: " << e.what() << std::endl;
-    }
+        catch (const std::exception &e)
+        {
+            std::cerr << "Error: " << e.what() << std::endl;
+        }
 #else
-    struct ifaddrs *ifap, *ifa;
-    struct sockaddr_in *sa;
+        struct ifaddrs *ifap, *ifa;
+        struct sockaddr_in *sa;
 
-    getifaddrs(&ifap);
-    for (ifa = ifap; ifa; ifa = ifa->ifa_next)
-    {
-      if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET)
-      {
-        sa = (struct sockaddr_in *)ifa->ifa_addr;
-        local_ip = inet_ntoa(sa->sin_addr);
-        if (local_ip != "127.0.0.1")
+        getifaddrs(&ifap);
+        for (ifa = ifap; ifa; ifa = ifa->ifa_next)
         {
-          break;
+            if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET)
+            {
+                sa = (struct sockaddr_in *)ifa->ifa_addr;
+                local_ip = inet_ntoa(sa->sin_addr);
+                if (local_ip != "127.0.0.1")
+                {
+                    break;
+                }
+            }
         }
-      }
-    }
-    freeifaddrs(ifap);
+        freeifaddrs(ifap);
 #endif
 
-    return local_ip;
-  }
-
-  void read_messages()
-  {
-    boost::asio::streambuf buffer;
-    while (true)
-    {
-      boost::system::error_code ec;
-      boost::asio::read_until(socket_, buffer, '\n', ec);
-      if (ec)
-        break;
-      std::istream is(&buffer);
-      std::string message;
-      std::getline(is, message);
-
-      if (message.find("PEER_INFO:") == 0)
-      {
-        // This is a peer information message
-        std::string peer_info = message.substr(10); // Remove the "PEER_INFO:" prefix
-        ClientInfo new_peer = ClientInfo::deserialize(peer_info);
-
-        // Check if public IP matches self public IP and set target IP accordingly
-        if (new_peer.public_ip == self_info_.public_ip)
-        {
-          std::cout << "WARNING: Connecting peer is on same network" << std::endl;
-
-          new_peer.target_ip = new_peer.local_ip; // set target IP to local IP of the connecting peer
-        }
-        new_peer.print();
-
-        // Store the new peer in the peer_clients map
-        {
-          std::unique_lock<std::mutex> lock(peer_clients_mutex_);
-          peer_clients_[new_peer.id] = new_peer;
-          peer_manager_.add_client(new_peer);
-        }
-
-        std::cout << "Received and stored peer info: " << peer_info << std::endl;
-        print_connected_clients();
-      }
-      else if (message.find("SELF_INFO:") == 0)
-      {
-        // This is self information message
-        std::string self_info_str = message.substr(10);      // Remove the "SELF_INFO:" prefix
-        self_info_ = ClientInfo::deserialize(self_info_str); // update self_info with the new self info received from the server
-
-      // Bind the UDP socket to the received port
-    // udp_socket_.open(udp::v4());
-    // udp_socket_.bind(udp::endpoint(udp::v4(), self_info_.udp_port));
-
-
-        std::cout << "Received self info: " << self_info_str << std::endl;
-      }
-      else
-      {
-        // This is a general message from the server
-        std::cout << "Received: " << message << std::endl;
-      }
+        return local_ip;
     }
-  }
 
-  void print_connected_clients() const
-  {
-    std::cout << "Connected clients:" << std::endl;
-    for (const auto &pair : peer_clients_)
+    void periodically_send_messages(const std::string &client_id)
     {
-      pair.second.print();
+        while (true)
+        {
+            boost::this_thread::sleep(boost::posix_time::seconds(5));
+            std::string message = "Periodic message from client " + client_id;
+            client_manager_.send_data_to_all(message);
+        }
     }
-    std::cout << std::endl;
-  }
+
+    boost::asio::io_context &io_context_;
+    udp::socket socket_;
+    std::string server_ip_;
+    unsigned short server_port_;
+    ClientManager client_manager_;
+    AudioCapture audio_capture_;
+
+    char data[1024];
+    udp::endpoint sender_endpoint;
+    udp::endpoint server_endpoint;
+
+    TcpClient tcp_client_;
+    const std::size_t max_length = 1024;
 };
 
-int main(int argc, char *argv[])
+int main()
 {
-  try
-  {
-    std::cout << "Starting client" << std::endl;
-    Client client("64.226.97.53", "12345");
-    client.send_initial_udp_message();
-    client.connect();
-    
-    while (true)
-    {
-      std::string message;
-      std::cout << "Enter a message: ";
-      std::getline(std::cin, message);
+    boost::asio::io_context io_context;
+    Client client(io_context, "64.226.97.53", 13579, 24680);
+    std::cout << "Initialising client!" << std::endl;
+    std::cout << std::endl;
+    client.initialize();
+    std::cout << "Starting main client loop" << std::endl;
+    boost::thread main_loop_thread(&Client::run, &client);
+    main_loop_thread.join();
 
-      if (message.empty())
-        break;
-
-      client.send_message(message);
-      std::string peer_message = "sup peer!";
-      client.send_message_to_peers(peer_message);
-    }
-
-    client.close();
-  }
-  catch (std::exception &e)
-  {
-    std::cerr << "Error: " << e.what() << std::endl;
-  }
-
-  return 0;
+    return 0;
 }

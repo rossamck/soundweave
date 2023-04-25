@@ -22,6 +22,8 @@ class ClientManager {
   void send_audio_to_all(const std::vector<short> &audio_data);
 
   void print_clients();
+      void initialize(boost::asio::io_context& io_context, const std::string& server_ip, const std::string& server_port);
+
 
 //test
     void parse_received_data(const std::vector<uint8_t>& data, RTPHeader& rtp_header, std::vector<short>& audio_data);

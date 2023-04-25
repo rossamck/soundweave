@@ -22,7 +22,7 @@ set(CMAKE_EXE_LINKER_FLAGS "-pthread")
 add_executable(send ${NETWORKING_SOURCES} ${AUDIOCAPTURE_SOURCES} src/holepunchrtp2.cpp)
 add_executable(receive ${NETWORKING_SOURCES} ${AUDIOCAPTURE_SOURCES} ${AUDIOWAVEFORM_SOURCES} src/holepunchwaveform.cpp)
 
-find_package(ALSA REQUIRED)
+# find_package(ALSA REQUIRED)
 
 find_package(SDL2 REQUIRED)
 if (NOT TARGET SDL2::SDL2)
@@ -35,8 +35,8 @@ endif()
 # Find Boost libraries
 find_package(Boost REQUIRED COMPONENTS system thread)
 
-target_link_libraries(send PRIVATE ALSA::ALSA SDL2::SDL2 rtaudio Boost::system Boost::thread) # Update this line
-target_link_libraries(receive PRIVATE ALSA::ALSA SDL2::SDL2 rtaudio Boost::system Boost::thread) # Update this line
+target_link_libraries(send PRIVATE SDL2::SDL2 rtaudio Boost::system Boost::thread) # Update this line
+target_link_libraries(receive PRIVATE SDL2::SDL2 rtaudio Boost::system Boost::thread) # Update this line
 
 target_include_directories(send PRIVATE deps/rtaudio ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_include_directories(receive PRIVATE deps/rtaudio ${CMAKE_CURRENT_SOURCE_DIR}/src)
