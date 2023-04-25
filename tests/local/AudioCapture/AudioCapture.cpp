@@ -64,7 +64,7 @@ void AudioCapture::start()
         parameters.nChannels = 1;
         parameters.firstChannel = 0;
         unsigned int sample_rate = 44100;
-        unsigned int buffer_frames = 512;
+        unsigned int buffer_frames = 16;
 
         RtAudioFormat format = RTAUDIO_SINT16;
 

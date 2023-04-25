@@ -76,7 +76,7 @@ int main()
     parameters.nChannels = 1;
     parameters.firstChannel = 0;
     unsigned int sampleRate = 44100;
-    unsigned int bufferFrames = 512;
+    unsigned int bufferFrames = 128;
 
     
     

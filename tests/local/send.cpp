@@ -17,7 +17,7 @@ int main()
     udp::socket socket(io_context, udp::endpoint(udp::v4(), 0));
 
     // Set the server IP and port
-    std::string server_ip = "192.168.0.49";
+    std::string server_ip = "192.168.0.164";
     unsigned short server_port = 13579;
 
     // Resolve the server endpoint
