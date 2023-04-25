@@ -7,6 +7,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/bind/bind.hpp>
 #include <functional>
+#include <fstream>
 
 #ifdef _WIN32
 #include <boost/asio/ip/host_name.hpp>
@@ -17,7 +18,7 @@
 
 #include "Networking/ClientManager.h"
 #include "Networking/ClientInfo.h"
-#include "Networking/RTP.h"
+// #include "Networking/RTP.h"
 #include "AudioCapture/AudioCapture.h"
 
 using boost::asio::ip::udp;
@@ -28,6 +29,26 @@ void audio_data_callback(const std::vector<short> &audio_data, ClientManager &cl
     // std::cout << "Captured audio data with " << audio_data.size() << " samples" << std::endl;
     // I WANT TO SEND THE DATA HERE
     client_manager.send_audio_to_all(audio_data);
+}
+
+
+void received_audio_data_callback(const std::vector<short> &audio_data)
+{
+    // Open the output file in append mode
+    std::ofstream outfile("output.raw", std::ios::out | std::ios::app | std::ios::binary);
+
+    // Check if the output file is open
+    if (!outfile.is_open())
+    {
+        std::cerr << "Error opening output file" << std::endl;
+        return;
+    }
+
+    // Write the received audio data to the file
+    outfile.write(reinterpret_cast<const char *>(audio_data.data()), audio_data.size() * sizeof(short));
+
+    // Close the output file
+    outfile.close();
 }
 
 class TcpClient
@@ -193,11 +214,13 @@ public:
                 client_manager_.print_clients();
             }
             else
-            {
-                // Handle peer messages
-                std::cout << "Received data from peer (" << sender_endpoint << "): " << std::endl;
-                // std::cout << "Received data from peer (" << sender_endpoint << "): " << received_data << std::endl;
-            }
+          {
+            // Handle peer messages (audio data)
+            std::vector<short> received_audio_data(reinterpret_cast<short *>(data),
+                                                   reinterpret_cast<short *>(data) + bytes_transferred / sizeof(short));
+            received_audio_data_callback(received_audio_data);
+        }
+
 
             start_async_receive(); // Start listening for new data again
         }
