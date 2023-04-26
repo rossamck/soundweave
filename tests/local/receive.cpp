@@ -1,11 +1,19 @@
 // receive.cpp
-#include "common.h"
-#include "rtaudio/RtAudio.h"
+// #include "common.h"
+// #include "rtaudio/RtAudio.h"
+#include <iostream>
+#include <string>
+#include <functional>
+#include <fstream>
+#include <boost/asio.hpp>
 
+
+#include "../../../vcpkg/installed/x64-windows/include/rtaudio/RtAudio.h"
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
 
+using boost::asio::ip::udp;
 
 std::vector<short> g_received_audio_data;
 std::mutex g_audio_data_mutex;
@@ -24,20 +32,7 @@ void received_audio_data_callback(const std::vector<short> &audio_data)
     g_audio_data_cv.notify_one();
 
     // Open the output file in append mode
-    std::ofstream outfile("output.raw", std::ios::out | std::ios::app | std::ios::binary);
-
-    // Check if the output file is open
-    if (!outfile.is_open())
-    {
-        std::cerr << "Error opening output file" << std::endl;
-        return;
-    }
-
-    // Write the received audio data to the file
-    outfile.write(reinterpret_cast<const char *>(audio_data.data()), audio_data.size() * sizeof(short));
-
-    // Close the output file
-    outfile.close();
+   
 }
 
 

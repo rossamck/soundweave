@@ -3,15 +3,14 @@
 
 #include <iostream>
 #include <boost/asio.hpp>
-#include <boost/thread.hpp>
+// #include <boost/thread.hpp>
 #include <vector>
 #include <string>
-#include <boost/asio/ip/tcp.hpp>
 #include <boost/bind/bind.hpp>
 #include <functional>
 #include <fstream>
 
-#include "AudioCapture/AudioCapture.h"
+
 
 using boost::asio::ip::udp;
 using namespace boost::placeholders;
