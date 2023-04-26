@@ -1,0 +1,29 @@
+cmake_minimum_required(VERSION 3.15)
+project(receive)
+
+# Specify the location of the Boost root directory and libraries
+set(BOOST_ROOT "C:/Boost")
+set(BOOST_LIBRARYDIR "C:/Boost/lib")
+find_package(Boost COMPONENTS system thread REQUIRED)
+
+# Include the Boost header files
+include_directories(${Boost_INCLUDE_DIRS})
+
+# Include the manually built RtAudio header files
+# include_directories("C:/Users/rossm/Documents/git/soundweave/tests/local/rtaudio")
+# Find the RtAudio library
+find_library(RTAUDIO_LIBRARY
+             NAMES rtaudiod
+             PATHS "C:/Users/rossm/Documents/git/soundweave/tests/local/rtaudio/build/Debug"
+             NO_DEFAULT_PATH)
+
+
+# Add the executable
+add_executable(receive receive.cpp)
+add_executable(send send.cpp AudioCapture/AudioCapture.cpp)
+
+# Link the Boost libraries
+target_link_libraries(receive PRIVATE ${Boost_LIBRARIES})
+
+# Link the manually built RtAudio library
+target_link_libraries(receive PRIVATE ${RTAUDIO_LIBRARY})

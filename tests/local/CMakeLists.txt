@@ -1,22 +1,15 @@
-cmake_minimum_required(VERSION 3.15)
-project(receive)
+cmake_minimum_required(VERSION 3.8)
+project(rtaudiotest)
 
-# Set the path to the vcpkg toolchain file
-set(VCPKG_TOOLCHAIN "C:/Users/rossm/Documents/git/vcpkg/scripts/buildsystems/vcpkg.cmake")
+# Set the C++ standard to use
+set(CMAKE_CXX_STANDARD 14)
 
-# Use the vcpkg toolchain file to locate RTAudio
-find_package(RtAudio REQUIRED)
+# Add the RtAudio source directory
+add_subdirectory(rtaudio)
 
-# Specify the location of the Boost root directory and libraries
-set(BOOST_ROOT "C:/Boost")
-set(BOOST_LIBRARYDIR "C:/Boost/lib")
-find_package(Boost COMPONENTS system thread REQUIRED)
+# Add the executable target for your main.cpp file
+add_executable(test main.cpp AudioCapture/AudioCapture.cpp)
 
-# Include the Boost and RTAudio header files
-include_directories(${RTAUDIO_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 
-# Add the executable
-add_executable(receive receive.cpp)
-
-# Link the Boost and RTAudio libraries
-target_link_libraries(receive PRIVATE ${RTAUDIO_LIBRARIES} ${Boost_LIBRARIES})
+# Link the RtAudio library to your executable
+target_link_libraries(test rtaudio)

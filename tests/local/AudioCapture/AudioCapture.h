@@ -1,7 +1,11 @@
 #ifndef AUDIO_CAPTURE_H
 #define AUDIO_CAPTURE_H
 
-#include "../rtaudio/RtAudio.h"
+// #include "../rtaudio/RtAudio.h"
+// #include "../../../../vcpkg/installed/x64-windows/include/rtaudio/RtAudio.h"
+#include "RtAudio.h"
+
+
 #include <string>
 #include <vector>
 #include <functional>
@@ -23,6 +27,8 @@ private:
     static int RtAudioCallback(void* outputBuffer, void* inputBuffer, unsigned int nBufferFrames,
                                double streamTime, RtAudioStreamStatus status, void* userData);
     unsigned int getDeviceId(const std::string& device_name);
+    unsigned int getDeviceIndex( std::vector<std::string> deviceNames );
+
     void generateSineWave();
 
     RtAudio dac_;

@@ -1,3 +1,5 @@
+#define _USE_MATH_DEFINES
+
 #include "AudioCapture.h"
 #include <iostream>
 
@@ -52,6 +54,8 @@ void AudioCapture::start()
     else
     {
         RtAudio::StreamParameters parameters;
+          std::vector<unsigned int> deviceIds = dac_.getDeviceIds();
+
         if (use_default_device_)
         {
             parameters.deviceId = dac_.getDefaultInputDevice();
@@ -59,24 +63,25 @@ void AudioCapture::start()
         else
         {
             parameters.deviceId = getDeviceId(device_name_);
+            unsigned int device = 0;
+            device = getDeviceIndex( dac_.getDeviceNames() );
+            parameters.deviceId = deviceIds[device];
         }
 
         parameters.nChannels = 1;
-        parameters.firstChannel = 0;
+        parameters.firstChannel = 1;
         unsigned int sample_rate = 44100;
-        unsigned int buffer_frames = 16;
+        unsigned int buffer_frames = 512;
 
         RtAudioFormat format = RTAUDIO_SINT16;
 
-        if (dac_.openStream(nullptr, &parameters, format, sample_rate, &buffer_frames, &AudioCapture::RtAudioCallback, this))
-        {
-            throw std::runtime_error(dac_.getErrorText());
-        }
+    dac_.openStream(nullptr, &parameters, format, sample_rate, &buffer_frames, &AudioCapture::RtAudioCallback, this);
+        
 
-        if (dac_.startStream())
-        {
-            throw std::runtime_error(dac_.getErrorText());
-        }
+        dac_.startStream();
+        
+     
+        
     }
 }
 
@@ -103,6 +108,20 @@ unsigned int AudioCapture::getDeviceId(const std::string &device_name)
     throw std::runtime_error("Device not found");
 }
 
+unsigned int AudioCapture::getDeviceIndex( std::vector<std::string> deviceNames )
+{
+  unsigned int i;
+  std::string keyHit;
+  std::cout << '\n';
+  for ( i=0; i<deviceNames.size(); i++ )
+    std::cout << "  Device #" << i << ": " << deviceNames[i] << '\n';
+  do {
+    std::cout << "\nChoose a device #: ";
+    std::cin >> i;
+  } while ( i >= deviceNames.size() );
+  std::getline( std::cin, keyHit );  // used to clear out stdin
+  return i;
+}
 
 void AudioCapture::generateSineWave() {
     const int sample_rate = 44100;
